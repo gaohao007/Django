@@ -1,0 +1,406 @@
+微博数据分析：
+1.确定分析的目标：
+    1.微博总量和独立用户数
+	2.用户所有微博被转发的总数，输出前3个用户
+	3.被转发次数最多的前3条微博，输出用户id
+	4.每个用户发布的微博总数，存储到临时表
+	5.统计带图片的微博数
+	6.统计使用iphone发微博的独立用户数
+	7.微博中评论次数小于1000的用户id和数据来源，放入视图
+	8.统计上条视图中数据来源“ipad客户端”的用户数目
+
+2.理解原始数据：
+   提供的原始数据是json数据。
+   总共19个字段
+	beCommentWeiboId 是否评论
+	beForwardWeiboId 是否是转发微博
+	catchTime 抓取时间
+	commentCount 评论次数
+	content 内容
+	createTime 创建时间
+	info1 信息字段1
+	info2信息字段2
+	info3信息字段3
+	mlevel no sure
+	musicurl 音乐链接
+	pic_list 照片列表（可以有多个）
+	praiseCount 点赞人数
+	reportCount 转发人数
+	source 数据来源
+	userId 用户id
+	videourl 视频链接
+	weiboId 微博id
+	weiboUrl 微博网址
+
+3.构建数据仓库，并进行数据的清洗处理
+   在hive中创建一个数据库：weibo
+   --创建数据库weibo
+	create  database weibo;
+	--切换数据库
+	use weibo;
+   在hdfs上创建一个文件夹，作为微博数据保存的数据仓库
+   [root@master ~]# hdfs dfs -mkdir /weibo
+   数据仓库分为三层：
+   1.ODS:主要保存原始数据，也就是直接将json数据保存进来
+     --创建一个ods层表，保存原始数据
+	 create table ods_weibo(
+	   json_str string
+	 )
+	 location '/weibo/ods_weibo';
+   
+   2.DW:明细层，主要就是需要将贴源层的数据进行解析成明细数据。
+     create external table dw_weibo(
+		beCommentWeiboId string,
+		beForwardWeiboId string,
+		catchTime bigint,
+		commentCount bigint,
+		content string,
+		createTime bigint,
+		info1 string,
+		info2 string,
+		info3 string,
+		mlevel string,
+		musicurl array<string>,
+		pic_list array<string>,
+		praiseCount int,
+		reportCount int,
+		source string,
+		userId bigint,
+		videourl array<string>,
+		weiboId bigint,
+		weiboUrl string
+		)
+		row format delimited
+		fields terminated by '\t'
+		stored as orc
+		location '/weibo/dw/dw_weibo';
+   
+   3.ADS:应用层，主要就是对数据需求指标计算
+   数据的清洗处理加载：ETL
+   1.原始数据的抽取
+     封装脚本
+	 #!/bin/bash
+
+
+		#进行数据的加载
+		sql="load data local inpath '/root/weibo1/*' overwrite into table weibo.ods_weibo;"
+
+		#执行sql语句
+		hive -e "$sql"
+
+   2.数据的清洗和解析加载到dw层
+   #!/bin/bash
+
+
+#加载数据
+
+sql="
+insert overwrite table weibo.dw_weibo
+select get_json_object(json_str,'$.[0].beCommentWeiboId'),get_json_object(json_str,'$.[0].beForwardWeiboId'),get_json_object(json_str,'$.[0].catchTime'),get_json_object(json_str,'$.[0].commentCount'),get_json_object(json_str,'$.[0].content'),
+       get_json_object(json_str,'$.[0].createTime'),
+       get_json_object(json_str,'$.[0].info1'),
+        get_json_object(json_str,'$.[0].info2'),
+        get_json_object(json_str,'$.[0].info3'),
+        get_json_object(json_str,'$.[0].mlevel'),
+       if(length(regexp_replace(get_json_object(json_str,'$.[0].musicurl'),'\\[|\\]|\"',''))=0 ,null,
+    split(regexp_replace(get_json_object(json_str,'$.[0].musicurl'),'\\[|\\]|\"',''),',')) musicurl,
+       if(length(regexp_replace(get_json_object(json_str,'$.[0].pic_list'),'\\[|\\]|\"',''))=0 ,null,
+    split(regexp_replace(get_json_object(json_str,'$.[0].pic_list'),'\\[|\\]|\"',''),',')),
+        get_json_object(json_str,'$.[0].praiseCount'),
+       get_json_object(json_str,'$.[0].reportCount'),
+       get_json_object(json_str,'$.[0].source'),
+        get_json_object(json_str,'$.[0].userId'),
+       if(length(regexp_replace(get_json_object(json_str,'$.[0].videourl'),'\\[|\\]|\"',''))=0 ,null,
+    split(regexp_replace(get_json_object(json_str,'$.[0].videourl'),'\\[|\\]|\"',''),',')),
+       get_json_object(json_str,'$.[0].weiboId'),
+       get_json_object(json_str,'$.[0].weiboUrl')
+       from weibo.ods_weibo;
+";
+#执行sql语句
+hive -e "$sql"
+
+     
+4.计算需求的指标：
+--1.微博总量和独立用户数
+select count(distinct weiboId),count(distinct userId) from dw_weibo;
+--2.用户所有微博被转发的总数，输出前3个用户
+select * from(
+ select userId,sum(reportCount) report_sum from dw_weibo group by userId) a sort by report_sum desc limit 3;
+
+select userId,sum(reportCount) report_sum from dw_weibo group by userId sort by report_sum desc limit 3;
+
+	--3.被转发次数最多的前3条微博，输出用户id
+select weiboId,userId,sum(reportCount) report_sum
+from dw_weibo group by weiboId,userId sort by report_sum desc limit 3;;
+
+--	4.每个用户发布的微博总数，存储到临时表
+create temporary table tmp_weibo as
+select userId, count(weiboId) weibo_count from dw_weibo group by userId;
+
+select * from tmp_weibo;
+
+--	5.统计带图片的微博数
+select count(pic_list) from dw_weibo ;
+--	6.统计使用iphone发微博的独立用户数
+select count(distinct userId) from dw_weibo where upper(source) like '%IPHONE%';
+
+	--7.微博中评论次数小于1000的用户id和数据来源，放入视图
+	create view view_weibo as
+	select userId,source from dw_weibo where commentCount<1000;
+
+select * from view_weibo;
+	--8.统计上条视图中数据来源“ipad客户端”的用户数目
+	select count(distinct userId) from view_weibo where upper(source) ='IPAD客户端';
+
+
+--1.将微博的点赞数和转发数求和，降序，取前10条。
+select praiseCount+dw_weibo.reportCount sum_count from dw_weibo sort by sum_count desc limit 10;
+
+--1.用户微博内容中出现iphone关键词的最大次数
+select size(split(content,'iphone'))-1 co from dw_weibo sort by co desc limit 1;
+
+
+5.进行报表展示或者下游的系统进行数据的使用：
+6.产出分析结果以及建议。
+
+
+
+
+【分支函数】：
+  nvl(列名,值1):如果列的值为空，则返回值1.否则返回列名的值。
+  select comm,nvl(comm,100) from emp;
+  if(条件,值1,值2):如果条件成立，则执行值1，否则执行值2.
+  --如果奖金为空，则设置为100，否则在原来的奖金的基础上加上200
+	select comm,`if`(comm is null ,100,comm+200) from emp;
+	--如果工资大于3000则显示高收入，否则显示低收入
+	select sal,`if`(sal>3000,'高收入','低收入') from  emp;
+  case when:多分支语句，功能和Oracle中是一样的
+   --如果工资小于1500则低收入,1500到3000中收入，否则高收入
+	select sal,case when sal<1500 then '低收入'
+					when sal<3000 then '中收入'
+					else '高收入' end
+	from emp;
+	
+【正则函数】：
+  注意：在hive中编写正则的时候如果元字符或者转换字符前面有’\‘必须要多加一个’\‘。
+  
+  regexp:相当于Oracle中regexp_like函数，主要进行一些模糊匹配
+  语法：列名 regexp '正则表达式'
+    --查询员工的姓名以S结尾的员工的信息
+	select * from emp where ename regexp 'S$';
+	--查询员工的姓名以5个字母组成，第二个字母必须是O的员工的信息
+	select * from emp where ename regexp '^[a-zA-Z]O[a-zA-Z]{3}$'
+  
+  regexp_replace(s,'正则表达式','替换的内容'):将字符串s中正则表达式描述的部分替换为新内容。
+  select regexp_replace('adfsdf3344rdgfg75ujghu6786iyjghj6uhjg','\\d+','*') ;
+  
+  regexp_extract(字符串，'正则表达式',n):截取字符串中正则表达式描述的某一组内容，n代表获取的是第n组的数据
+   --截取一个有效的手机号
+	select regexp_extract('shdghgsdh13425150977sjhdfkjhsdkfj','(1[3-9]\\d{9})');
+	--截取手机号的中间四位
+	select regexp_extract('shdghgsdh13425150977sjhdfkjhsdkfj','(1[3-9]\\d)(\\d{4})(\\d{4})',3);
+	注意：如果使用regexp_extract函数进行截取字符串的时候，必须要给正则表达式进行分组，默认获取的第一个组的数据。
+  
+【炸裂函数】:
+  explode(数组|map字典)：
+  功能类似于oracle数据库中层级拆分，将一个数组或者map字典中的数据拆解成很多行。
+  语法：select explode(拆分列) as 拆分后的列名  from 表；
+  --拆分一个数组
+	with tmp as (
+	select  'aa,ss,dd,ff' str)
+	select explode(split(str,',')) as strs from tmp;
+  --拆分一个map字典
+	with tmp as (
+	select "name=zhangsan,age=18,sex=男" str)
+	select explode(str_to_map(str,',','=')) as(k,v) from tmp;
+  
+  
+  注意：直接使用explode函数只能显示要拆分的列，不能和表中的其他列一起使用，如果在拆分的同时还要显示别的列，则需要
+  配合lateral view一起使用
+  语法：select 列名,列名,.....拆分后列名 from 表名 lateral view explode(拆分列名) 设置视图名称 as 拆分后列名|列名1,列名2 
+  
+	with tmp as (
+	select 1 id,'aaa,bbb,ccc,ddd' str )
+	select id,s from tmp lateral view explode(split(str,',')) v as s ;
+
+
+	with tmp as (
+	select 1 id,"name=zhangsan,age=18,sex=男" str)
+	select id,k,v from tmp lateral view explode(str_to_map(str,',','=')) v as k,v;
+	
+	with tmp as(
+	select deptno,collect_list(ename) names from emp group by deptno)
+	select deptno,name from tmp lateral view explode(names) v as name;
+	
+	
+【hive中的表分区】
+ 1.表分区作用：提高查询效率。
+ 2.hive中的表分区其实就是分文件夹，将一个表中的数据划分到多个文件夹中保存。
+   表分区的语法：
+   create [external] table  表名(
+     列名  数据类型,
+	 。。。。。
+   )partitioned by (分区列名 数据类型,分区列明 数据类型,......)
+   row format delimited
+   .......
+   
+   注意：1.分区列表需要单独在partitioned by后面定义，不能写在create  后面。
+         2.分区关键字写在row format的前面
+		 
+		 
+	--创建一个分区表，保存员工的信息，按照员工的部门号进行分区
+	create table emp_partition(
+		empno int,
+		ename string,
+		job string,
+		mgr int,
+		hiredate string,
+		sal decimal(16,2),
+		comm decimal(16,2)
+	)partitioned by (deptno int)
+	row format delimited
+	fields terminated by ',';
+	
+  3.hive中的分区的分类：主要是从数据的加载方式来分
+    静态分区：手工分区，分区的名称和分区额数据都是用户来直接添加，并且一次只能向一个分区中添加数据。
+	添加数据的方式：
+	  1.load data [local] inpath '文件地址' into table 表名 partition(分区列名=值)
+	  --静态分区数据加载
+	  load data local inpath '/root/EMP.txt' into table emp_partition partition (deptno=20);
+	  2.insert into|overwrite table 表名 partition(分区列名=值) select 列名,列名,....from 表;
+	  如果是静态分区加载数据，使用insert into则查询出来的数据中不能包含分区列的值。
+	  --加载数据
+		insert overwrite table emp_partition partition (deptno=20)
+		select empno,ename,job,mgr,hiredate,sal,comm from emp;
+		
+    使用场景：如果只想新增一个分区，并且只向这一个分区中保存数据，则使用静态分区。
+	例如：实际工作中每天都需要进行数据的增量抽取，每天抽取一次数据就会创建一个新的分区，将抽取到数据进行保存，则就直接使用静态分区。
+
+	
+    动态分区：自动分区，	分区的名称和数据都是由系统根据分区列的值来动态划分和生成。
+	动态分区参数设置：
+	 --设置开启动态分区：（默认已经开启）
+	  set hive.exec.dynimac.partition=true;
+	 -- 设置动态分区的最大数量
+	  set hive.exec.max.dymanic.partitions=1000;
+	 --设置每一个节点上允许最大的分区的数量
+	 set hive.exec.max.dynamic.partitions.pernode=100;
+	 --设置分区模式：默认严格模式：strict
+	 set hive.exec.dynamic.partition.mode=nonstrict;
+	    strict:如果在严格模式下，进行动态分区的时候必须要先提供一个静态分区的列。
+		nonstrict:非严格模式，不许压迫设置静态分区的列，直接进行分区，推荐使用。
+		
+		
+	动态分区加载数据的方式：
+	insert into|overwrite table 表名 partition(分区列名) select 列名,列名,....from 表;
+	--动态分区加载数据
+	insert into table emp_partition1 partition (deptno)
+	select * from emp;
+			
+	使用场景：将文件中的数据按照分区列的值来创建多个分区，并且将不同值保存到对应的分区中，使用动态分区。
+	例如：1.如果要将一批历史数据，按照指定的列进行分区保存，则可以使用动态分区。
+	      2.如果增量抽取数据，将数据同步到之前的多个分区中，则需要使用动态分区。
+    
+		  
+	--确定分析需求
+	--理解原始数据
+	--数据预处理
+	--将原始数据中的日期拆分为：年，月，日，小时，然后上传到hdfs上
+
+	--构建数据仓库：
+	--创建一个数据
+	create database sogou;
+	use sogou;
+	--ods：建表
+	create external table if not exists ods_sogou (
+	ts string,
+	uid string,
+	keyword string,
+	rank int,
+	orders int,
+	url string,
+	year int,
+	month int,
+	day int,
+	hour int)
+	row format delimited fields terminated by '\t'
+	location '/sogou/ods/ods_sogou';
+
+	select * from ods_sogou limit 10;
+	select count(*) from ods_sogou;
+
+	--dw:对数据进行分区：按照年，月，日，小时
+	create external table if not exists dw_sogou (
+	ts string,
+	uid string,
+	keyword string,
+	rank int,
+	orders int,
+	url string)
+	partitioned by (year int,
+	month int,
+	day int,
+	hour int)
+	row format delimited fields terminated by '\t'
+	location '/sogou/dw/dw_sogou';
+
+	--动态分区的方式加载数据
+	insert  into table dw_sogou partition (year,month,day,hour)
+	select * from ods_sogou;
+
+
+	select count(*) from ods_sogou;
+	select count(*) from dw_sogou;
+	-- 数据总数
+	select count(*) from dw_sogou;
+	-- 非空查询条数
+	select count(*) from dw_sogou where ts is not null and uid is not null and keyword is not null and rank is not null and orders is not null;
+	-- 无重复条数（根据ts,uid,keyword,url）
+	select count(*) from (
+	select ts,uid,keyword,url from dw_sogou group by ts,uid,keyword,url) a;
+	-- 独立UID条数
+	select count(distinct uid) from dw_sogou;
+
+	-- 关键词平均长度统计，关键词中没有空白字符，则长度为一
+	select avg(size(split(keyword,'\\s+'))) from dw_sogou;
+
+	-- 查询频度排名:查询每一个关键词被搜索的次数
+	select keyword,count(*) count_1 from dw_sogou group by keyword order by count_1 desc;
+
+	-- 查询一次，两次，三次，大于三次的UID数量
+	select sum(`if`(c=1,1,0))one,
+		   sum(`if`(c=2,1,0)) two,
+		   sum(`if`(c=3,1,0)) three,
+		   sum(`if`(c>3,1,0)) gt3
+	from(
+	select uid,count(*) c from dw_sogou group by uid)a;
+
+
+
+	-- UID平均查询次数
+	select avg(c) from(
+	select uid,count(*) c from dw_sogou group by uid) a;
+
+	-- 查询次数大于两次的用户总数
+	select
+		   sum(`if`(c>2,1,0)) gt3
+	from(
+	select uid,count(*) c from dw_sogou group by uid)a;
+
+	-- 查询次数大于两次的用户所占比-- 分开计算，然后相除。
+
+	select
+		   sum(`if`(c>2,1,0)) gt3,
+		   count(*),
+		   sum(`if`(c>2,1,0)) /count(*) zb
+	from(
+	select uid,count(*) c from dw_sogou group by uid)a;
+
+	-- 直接输入URL查询的条数
+	select * from dw_sogou where dw_sogou.keyword like 'http://%';
+	select count(*) from dw_sogou where dw_sogou.keyword regexp '^(http|ftp|https):\\/\\/[\\w\\-_]+(\\.[\\w\\-_]+)+([\\w\\-\\.,@?^=%&amp;:/~\\+#]*[\\w\\-\\@?^=%&amp;/~\\+#])?$';
+
+
+	-- 直接输入URL查询并且查询的URL位于点击的URL中的条数
+	select count(*) from dw_sogou where dw_sogou.keyword regexp '^(http|ftp|https):\\/\\/[\\w\\-_]+(\\.[\\w\\-_]+)+([\\w\\-\\.,@?^=%&amp;:/~\\+#]*[\\w\\-\\@?^=%&amp;/~\\+#])?$'
+	and keyword=url;

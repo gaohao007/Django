@@ -1,0 +1,373 @@
+1.hadoop平台的搭建方式有三种：
+1.本地模式：
+2.伪分布模式:一般是再学习或者测试环境中使用，可以模拟出完全分布式的所有的功能。
+3.完全分布式：主要是利用多台服务器来搭建一个集群，再真实的工作环境中一般都是用的是完全分布。
+
+hadoop版本：2.7
+
+搭建伪分布：
+ 1.由于hadoop是java程序，所以再运行之前必须要先安装JDK环境
+ 2.安装hadoop
+   1.为了避免每次启动hadoop平台都需要输入服务器的密码，需要提前再各个服务器之间设置免密登录：使用的协议：ssh
+     1.查看当前服务器是否有免密登录
+	   ssh 主机名
+	   如果需要输入密码则代表没有设置免密登录
+	   [root@master ~]# ssh master
+	 2.设置免密登录
+	    通过加密算法来产生一个公钥和私钥
+	   [root@master ~]# ssh-keygen -t rsa         
+        将公钥发送到目标主机
+       [root@master .ssh]# cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+	   修改权限
+	    [root@master .ssh]# chmod 0600 ~/.ssh/authorized_keys
+     3.测试免密是否成功
+	   [root@master .ssh]# ssh master
+   2.安装hadoop
+      1.准备hadoop的安装包
+	    hadoop-2.7.7.tar.gz 
+      2.将hadoop解压到bigdata文件夹下面
+		[root@master ~]# tar -zxvf hadoop-2.7.7.tar.gz -C bigdata/
+	  3.配置hadoop的环境变量
+	    [root@master ~]# vi ~/.bashrc
+		添加一下内容：
+		#配置hadoop的 路径
+		export HADOOP_PREFIX=自己Hadoop的安装路径
+		export PATH=${PATH}:${HADOOP_PREFIX}/bin
+		export PATH=${PATH}:${HADOOP_PREFIX}/sbin
+	  4.设置配置文件生效
+	    [root@master ~]# source ~/.bashrc
+      5.测试
+	    [root@master ~]# hadoop version
+		Hadoop 2.7.7
+    3.配置hadoop
+	  配置文件保存的位置：/root/bigdata/hadoop-2.7.7/etc/hadoop
+	  [root@master ~]# cd bigdata/hadoop-2.7.7/etc/hadoop/
+
+	  1.配置核心配置文件：core-site.xml
+	     vi core-site.xml
+		 在configuration标签里面添加：
+		 
+		<!--配置hadoop集群服务器名称 -->
+		<property>
+		  <name>fs.defaultFS</name>
+		  <value>hdfs://主机名:8020</value>
+		</property>
+	   2.配置hdfs文件：hdfs-site.xml
+	     vi hdfs-site.xml
+		 在configuration标签里面添加：
+		    <property>
+			<name>dfs.replication</name>
+			<value>1</value>
+		   </property>
+		   <property>
+				<name>dfs.namenode.name.dir</name>
+				<value>/root/bigdata/hadoop-2.7.7/dfs/name</value>
+		   </property>
+		   <property>
+				<name>dfs.datanode.data.dir</name>
+				<value>/root/bigdata/hadoop-2.7.7/dfs/data</value>
+		   </property>
+       3.配置mapreduce的配置文件：mapred-site.xml
+	      1.将mapred-site.xml.template文件复制一份重命名为：mapred-site.xml
+		  [root@master hadoop]# cp mapred-site.xml.template mapred-site.xml
+          2.打开复制之后的文件
+		   vi mapred-site.xml
+		   在configuration标签里面添加：
+		      <property>
+				<name>mapreduce.framework.name</name>
+				<value>yarn</value>
+			</property>
+	   4.配置yarn文件：yarn-site.xml
+	      vi yarn-site.xml
+		  在configuration标签里面添加：
+		    <property>
+			  <name>yarn.nodemanager.aux-services</name>
+			  <value>mapreduce_shuffle</value>
+		  </property>
+		  <property>
+			  <name>yarn.resourcemanager.address</name>
+			  <value>主机名:8032</value>
+		  </property>
+		  <property>
+			  <name>yarn.resourcemanager.scheduler.address</name>
+			  <value>主机名:8030</value>
+		  </property>
+		  <property>
+			  <name>yarn.resourcemanager.resource-tracker.address</name>
+			  <value>主机名:8031</value>
+		  </property>
+		  <property>
+				<name>yarn.resourcemanager.admin.address</name>
+				<value>主机名:8033</value>
+		  </property>
+       5.添加子节点：slaves
+	     vi slaves
+		 然后将里面的内容修改为当前的主机名
+	   6.修改hadoop的环境变量文件：hadoop-env.sh
+	      vi hadoop-env.sh
+		  修改其中JAVA_HOME的路径
+		  # The java implementation to use.
+			export JAVA_HOME=自己JDK安装的路径
+       7.在启动之前需要格式化一些主服务器
+	       [root@master hadoop]# hadoop namenode -format
+	   8.启动hadoop平台
+	        [root@master hadoop]# start-all.sh
+	   9.使用jps查看java进程
+	     root@master hadoop]# jps
+			2096 ResourceManager
+			2211 NodeManager
+			1669 NameNode
+			2454 Jps
+			1754 DataNode
+			1951 SecondaryNameNode
+
+
+注意：如果在启动之后缺少进程或者是进程不全
+    前提：保证配置文件没有问题的前提下
+	
+	1.关闭hadoop平台
+	   stop-all.sh
+	2.删除hadoop安装目录下面的生成的dfs文件夹和logs文件夹
+	3.重新格式化主节点
+	   hadoop namenode -format
+	4.重新启动hadoop平台
+	  start-all.sh
+	
+2.在伪分布的基础上搭建完全分布
+   服务器规划：
+      准备3台服务器：（使用虚拟机虚拟出来3台服务器）
+      整体架构：1主3从
+      主服务器：主机名：master      IP地址：192.168.74.130
+      子服务器1：主机名：master      IP地址：192.168.74.130
+      子服务器2：主机名：slave1      IP地址：192.168.74.131
+      子服务器3：主机名：slave2      IP地址：192.168.74.132
+
+
+    1.将原来伪分布的服务器关机，然后复制两份
+    2.使用虚拟机软件打开复制的虚拟机，然后修改对应的MAC地址，IP地址（ifcfg-ens33），主机名(hostname)，主机映射(hosts)，确保每一台服务器都能够正常上网。	
+	3.将每一台服务器中的hadoop配置文件中的slaves文件添加所有的子服务器的主机名
+	4.验证服务器之间是否可以正常的免密登录
+	5.删除每个服务器中的hadoop安装目录下的dfs和logs文件夹
+	4.格式化主服务器（只在主服务器中格式化即可）
+	  hadoop namenode -format
+	6.启动服务（只启动主服务器即可）
+	  start-all.sh
+	7.验证是否启动成功
+	  在主服务器查看进程：jps
+	  
+		[root@master hadoop-2.7.7]# jps
+		1670 DataNode
+		2326 Jps
+		2073 NodeManager
+		1962 ResourceManager
+		1547 NameNode
+		1822 SecondaryNameNode
+     在子服务器中查看进程：jps
+	   [root@slave1 hadoop-2.7.7]# jps
+		1361 DataNode
+		1449 NodeManager
+		1567 Jps
+
+如果在重启网络的时候启动失败：
+   前提：已经修改了MAC地址
+   解决办法：
+     1.查看网络配置文件是否有问题
+	 2.禁用NetworkManager服务
+	    systemctl stop NetworkManager
+		systemctl disable NetworkManager
+		#重启网络
+		service network restart
+		
+
+
+可以访问hadoop平台的web端系统：
+    http://192.168.74.130:50070 
+
+注意：通过浏览器来访问hadoop平台，需要关闭虚拟机的防火墙
+ 查看防火墙状态的命令
+ systemctl status firewalld 
+ 关闭防火墙
+ systemctl stop firewalld
+ 永久禁用防火墙
+ systemctl disable firewalld
+	   
+	     
+在hadoop中主要就是有5个进程来进行管理和执行任务
+1.NameNode:是hadoop平台中的一个关键进程，主要负责管理hdfs上的文件系统中命名空间，以及数据块所保存的位置。
+           主要是维护hdfs文件系统中的文件目录结构，文件和目录的属性，以及该文件所保存的数据块的位置。
+		   整个hadoop集群中，namenode进程只有一个，是hdfs的中心节点。
+2.SecondaryNameNode:主要就是定期进行namenode中的元数据的备份操作，并且还会定期的进行日志文件检查和合并，并且定期的清理一些旧的日志文件来释放空间。  
+3.ResourceManager：资源管理器，主要是负责分配集群中计算的资源给不同的应用程序。        
+4.DataNode：是hadoop中的数据节点进程，主要就是负责存储和管理hdfs中具体的数据块。每一个Datanode会定期向namenode发送数据块的信息，并且接受namenode
+            发送的一些指令：例如：数据块的复制，删除等等。
+5.NodeManager：一般是子服务器的资源管理器，一般和datanode是一一对应的，主要是接受来自于resourcemanager的任务分配，负责本地子服务器的启动和监控任务。
+	  
+
+HDFS文件系统：
+  Hadoop分布式文件系统（HDFS，Hadoop Distributed File System）
+  主要是用来保存hadoop中的一些离线的处理文件。
+  hdfs中文件的保存都是以数据块为单位，每一个文件在保存的时候系统都会根据文件的大小按照默认的数据块的大小对文件进行切块处理，每一个数据块再被分配
+  保存到具体的子服务器中。
+  系统默认的数据块的大小128M
+  HDFS系统架构：主从结构，一个主节点控制多个子节点
+  
+
+HDFS写机制：（文件保存）
+  1。客户端发送一个写文件的请求。
+  2.主节点将文件进行切块，并且为每一个数据块分配一个子服务器来保存，将子节点的列表返回给客户端。
+  3.客户端根据主节点返回的子节点列表然后进行数据块的写入和复制操作。
+  4.数据写入成功之后向客户端进行响应。
+  5.成功之后提交和关闭整个过程。  
+
+HDFS读文件机制L（读取文件）
+  1.客户端发送一个读取文件的请求
+  2.主节点将改文件对应的数据块列表以及他们所在的子节点的位置返回给客户端
+  3.客户端根据位置列表去子节点读取数据
+  4.数据读取完成之后关闭操作。
+
+
+HDFS操作：
+HDFS文件系统结构和Linux系统的结构类似，都是以“/”作为根目录，其他的文件都必须要直接或者间接保存到根目录下面。
+操作hdfs文件主要就是借助于HDFS的命令
+
+命令语法结构：
+ hdfs  子命令  二级命令  [参数]
+比较常用的子命令dfs
+ hdfs dfs 命令 [参数]
+ 
+ 1.创建文件夹
+   hdfs dfs -mkdir [-p] 文件夹名称
+   [root@master hadoop-2.7.7]# hdfs dfs -mkdir /demo
+   [root@master hadoop-2.7.7]# hdfs dfs -mkdir -p /test/test
+ 2.查看文件夹下面的文件
+   hdfs dfs -ls [文件夹名称]
+   [root@master hadoop-2.7.7]# hdfs dfs -ls /
+ 3.将本地的文件上传的hdfs中
+    hdfs dfs -put 上传文件名  hdfs上的路径
+	[root@master ~]# hdfs dfs -put wget-log /demo
+ 4.查看文件中内容
+   hdfs dfs -cat 文件名
+     [root@master ~]# hdfs dfs -cat /demo/wget-log
+ 5.查看文件的后n行
+    hdfs dfs -tail [-f] 文件名
+	[root@master ~]# hdfs dfs -tail /demo/wget-log
+    -f：实时监控文件的变化，如果文件中有新追加的内容则会打印出来     可以用来实现一些实时日志的打印查看
+	[root@master ~]# hdfs dfs -tail -f /demo/wget-log
+ 6.删除文件：
+    hdfs dfs -rm -r 文件名
+	[root@master ~]# hdfs dfs -rm -r /demo/wget-log
+	[root@master ~]# hdfs dfs -rm -r /test
+ 7.移动和重名了
+    hdfs dfs -mv 原文件 目标文件夹/[新文件名称]
+	
+	[root@master ~]# hdfs dfs -mv /demo/wget-log /demo/logs              重命名
+    [root@master ~]# hdfs dfs -mv /demo/logs /                        移动文件
+ 8.复制文件：
+    hdfs dfs -cp 原文件名   目标路径/[新名称]
+   [root@master ~]# hdfs dfs -cp /logs /demo/wget-log
+ 9.将hdfs文件下载到本地
+    hdfs dfs -get hdfs上文件名称     本地路径
+	[root@master ~]# hdfs dfs -get /logs /root
+
+ 10.修改文件的权限
+   hdfs dfs -chmod [-R] 权限数字  文件名
+	[root@master ~]# hdfs dfs -chmod -R 777 /
+
+
+
+Mapreduce:
+   mapreduce程序是一种离线的分布式计算框架，主要是用来计算和处理HDFS上保存的文件。
+
+   MapReduce特点
+	易于编程
+	良好的扩展性
+	高容错性
+	适合PB级以上海量数据的离线处理
+	
+Map-reduce的思想就是“分而治之” 
+Block
+HDFS中最小的数据存储单位 
+默认是128MB
+Split
+MapReduce中最小的计算单元 
+默认与Block一一对应
+Block与Split
+Split与Block的对应关系是任意的，可由用户控制	
+	
+	
+Mapreduce运行过程：
+输入------map映射-------shuffle-------reduce合并处理--------输出
+
+1.文件再进入mapreduce中，系统会按照文件的大小对文件进行切片处理，默认片的大小128M,默认的浮动比率是10%
+  一般情况下一个数据片对应一个maptask任务
+2.再每一个map任务中，会将该数据片的数据进行映射处理，将数据拆分为一个个键值对的数据然后保存，数据开始会保存到map缓存中
+  缓存默认100M，但是该缓存有一个溢出比率80%，如果缓存中的数据超过80M则系统就会启用磁盘写入，每次写入就会产生一个中间文件，
+  在写入的过程中会对数据进行排序操作。如果最后不够80M则也会写入到磁盘。整个映射过程完成之后就会产生多个中间文件。
+  
+  Map阶段由一定数量的Map Task组成
+	输入数据格式解析：InputFormat
+	输入数据处理：Mapper
+	数据分组：Partitioner
+	  
+  
+3.shuffle:属于reduce阶段，一般在完成map之后会产生很多个中间文件，这样会导致输入到reduce文件数量太多，所以需要先将中间文件进行
+         一次合并，在shuffle中会对中间文件中的数据进行分组，排序，合并，也就是将相同键的数据保存到同一个文件中。
+4.reduce合并计算处理
+    将shuffle中产生的文件在进行进一步的处理操作，得到最终的结果。
+	Reduce阶段由一定数量的Reduce Task组成
+	数据远程拷贝
+	数据按照key排序
+	数据处理：Reducer
+	数据输出格式：OutputFormat
+	
+5.将结果输出。
+
+
+yarn资源管理器：
+    是一个资源调度平台，负责为运算的程序提供一些计算的资源。
+	相当于一个分布式的操作系统，而mapreduce程序相当于操作系统中安装的应用程序。
+	
+	yarn主要是有以下组件来构成：
+	1.资源管理器：ResourceManager    简称RM
+	   1.处理客户端的请求
+	   2.用来监控NodeManager
+	   3.用来启动和监控AM
+	   4.资源的调度和分配
+	2.节点管理器：NodeManager 简称NM
+	   1.管理单个服务器上的资源
+	   2.处理来自于RM的命令
+	   3.处理来自于AM的命令
+	
+	3.应用程序大师：ApplicationMaster    简称AM
+	  1.为应用程序申请资源，并且分配内存给内部的任务
+	  2.进行任务的监控执行
+	
+	
+
+yarn工作流程：
+ 1.客户端提交应用：客户端向资源管理器提交一个应用程序任务，在提交的过程中会产生AM程序，启动AM命令，需要需要执行的任务等等
+ 2.资源分配：资源管理器会为该应用程序分配一个容器，并且于对应的nodemanager进行通信，要求nodemanager在当前容器中启动AM.
+ 3.启动AM:AM首先会向资源管管理器进行注册，并且向资源管理器请求分配资源
+ 4.启动任务：当AM申请到资源之后，会和Nodemanager进行通信，通知让nodemanager立即执行当前的任务
+ 5.任务准备：nodemanager获取到启动任务的命令之后，会为该任务分配她所需要的各种资源，并且通过脚本来启动任务开始执行
+           AM监控任务是否正常运行，直到程序执行结束.
+ 6.任务完成之后，应用程序会向资源管理器发送命令，申请销毁，然后进行资源的回收和释放。
+ 
+ 
+ 查看yarn资源管理的运行的状态以及日志信息
+ 方式一：通过浏览器来访问yarn运行任务：
+          http://虚拟主机的IP地址:8088
+ 方式二：通过命令查看
+          查看所有的yarn的application列表
+          yarn application -list                         
+          查看某一个应用程序的运行日志
+		  yarn logs -applicationId  应用程序ID
+
+	   
+
+		
+
+	   
+
+
+

@@ -1,0 +1,431 @@
+1.表分桶：
+  hive中的表分桶相当于mapreduce中的表分区，其实就是将表中的文件拆分成多个文件保存。
+  作用：1.提高查询效率
+        2.可以进行表中的数据的快速抽样
+		
+	分桶参数：
+	--开启表分桶：
+	set hive.enforce.bucketing=true;
+	--设置reduce的数量
+	set mapreduce.job.reduces=n;
+	
+	
+   分桶语法：
+    create [external] table 表名(
+	  列名,......
+	)partitioned by (....)
+	 clustered by (分桶列) into n buckets
+	 ......
+	
+	注意：1.分桶的列是从表中的列中选出来一个作为分桶列，不需要单独定义。
+	      2.n代表数字，表示要分的桶的数量
+		  3.在加载数据的时候如果没有设置reduce的数量则默认reduce的数量就和桶的数量是一致的。
+		  4.如果处理数据的时候没有设置reduce的数量，默认1个reduce，但是如果reduce处理的数据量超过1G，则系统会启动新的reduce
+		    如果设置了reduce的数量，则处理数据的reduce就是设置的数量
+			
+	分桶建议：1.选择分桶列的时候尽量选择关联的列进行分桶，这样可以提高表的关联效率。
+	          2.选择桶的数量的时候尽量使用质数，这样可以减少数据倾斜的发生。
+			  3.尽量在大文件中进行分桶。
+			  4.分桶列尽量选择一些重复率比较低的列，可以减少数据与倾斜。
+		  
+	分桶规则：先将分桶的列的值计算hash值，然后使用改hash值对桶的数量进行取余，余数就是对应的数据所在的桶的位置，0代表第一桶。
+	        
+		  
+	
+【分桶抽样】：
+   抽样：从所有的样本中抽取一部分的数据作为样本来进行分析操作。
+    
+	注意：1.抽样可以在任何表中进行，不限制于分桶表。
+	      2.分桶抽样其实就是在查询数据的时候对数据按照指定的列，进行逻辑分桶，不受原来表中是否分桶限制，可以重新设置分桶的列以及分桶的数量。
+	  
+    抽样的语法：
+    select * from 表 tablesample(bucket n out of m [on 分桶列]);	
+	n：代表获取的第几桶数据
+	m:代表桶的数量
+	on用来设置分桶抽样的时候分桶列，如果在一个分桶表上进行抽样，则可以将on省略，默认使用分桶表的分桶列，
+	如果在一个没有分桶的表上进行分桶抽样，则on是不能省略。
+	--分桶表抽样
+	select * from emp_bulket1 tablesample ( bucket 2 out of 3);
+	--未分桶表上进行抽样查询
+    select  * from demo.emp tablesample ( bucket 1 out of 3 on ename);
+	
+	
+【hive中的表关联操作】
+  1.内连接：和oracle中的内连接一样，但是hive中默认是不支持笛卡尔积和不等值连接，
+    如果要进行不等值连接，则必须要设置模式为：nonstrict
+	--设置非严格模式
+	set hive.mapred.mode=nostrict;
+	--表关联
+	select * from emp e,dept d;
+   2.外连接：
+     左外连接：
+	 右外连接：
+	 全外连接：
+   3.左半开连接：left semi join
+     由于早期的hive中不支持in和exists子查询，所以使用左半开连接来实现子查询的功能。
+	 语法：select * from 表 a left semi join 表 b on a.列=b.列；
+	 
+	 执行结果：只返回左表总符合关联条件的数据，并不会返回右表的数据。
+	 
+	 --查询有员工的部门信息
+	select * from dept d left semi join emp e on d.deptno=e.deptno;
+	--等同于（推荐使用）
+	select * from dept d where exists (select * from emp where d.deptno=deptno);
+	--等同于
+	select * from dept d where deptno in (select deptno from emp );
+	 
+
+hive中底层表关联的实现方式：mapreduce
+ mapreduce如何将两张表进行关联：
+ A
+ 
+ 1   qq
+ 2   ww
+ 3   ee
+ 4   rr
+ 
+ B
+ 1   深圳
+ 1   上海
+ 2   北京
+ 3   杭州
+ 
+ A inner join B
+ 整个过程分为三个阶段;
+ 第一个阶段：map--------------------以中间文件的形式保存到HDFS上
+ 将表中的数据应设置为一张键值对的数据，其中键就是关联的列的只，值就是改行数据的其他的列数据，并且在映射的时候
+ 为了区分数据来自于哪一张表，会给每一行数据设置一个标识，表明数据的来源。
+ 
+ 
+ A表映射
+<1,<A:1,qq>>
+<2,<A:2,ww>>
+<3,<A:3,ee>>
+<4,<A:4,rr>>
+B表映射
+<1,<B:1,深圳>>
+<1,<B:1,上海>>
+<2,<B:2,北京>>
+<3,<B:3,杭州>>
+
+第二个阶段：shuffle------------中间文件保存到hdfs上
+将map应映射之后的数据进行进一步的分区排序处理，也就是会将相同键的数据保存到一起
+
+<1,<A:1,qq>>
+<1,<B:1,深圳>>
+<1,<B:1,上海>>
+
+<2,<A:2,ww>>
+<2,<B:2,北京>>
+ 
+<3,<A:3,ee>>
+<3,<B:3,杭州>>
+
+<4,<A:4,rr>>
+
+第三个阶段：reduce-------------最终合并输出结果：hdfs
+将shuffle之后的结果进行进一步的计算处理，如果只有一个reduce，则所有的中间文件全部分配到改reduce中进行处理，如果只有一个reduce，则所有的中间文件全部分配到改reduce中进行处理，
+如果有多个reduce，则会按照键进行分配，一般相同键的数据都会进入到同一个reduce中进行处理。
+reduce在合并的时候将相同键的不同来源的数据进行两两组合，然后得到最终的表关联的结果。
+
+1  qq  1  深圳
+1  qq  1  上海
+2  ww  2  北京
+3  ee  3  杭州
+
+--创建一张表
+create table user_t
+(
+    id int,
+    name string,
+    last_date date
+)row format delimited
+fields terminated by ',';
+
+
+--加载数据
+load data local inpath '/root/user_t.txt' overwrite into table user_t;
+select * from user_t;
+--目标表
+create table user_t1
+(
+    id int,
+    name string,
+    last_date date
+)row format delimited
+fields terminated by ',';
+
+load data local inpath '/root/user_t.txt' into table user_t1;
+
+select * from user_t1;
+--实现Oracle中的merge into的效果
+insert overwrite table user_t1
+select
+ nvl(t1.id,t2.id),
+ nvl(t1.name,t2.name),
+nvl(t1.last_date,t2.last_date)
+from (select * from user_t where last_date='2024-3-17') t1 right join user_t1 t2 on t1.id=t2.id;
+
+--创建一个拉链表
+create table user_his
+(
+    id int,
+    name string,
+    last_date date,
+    begin_date date,
+    end_date date
+)row format delimited
+fields terminated by ',';
+
+--开链：在ORacle中insert into
+--关联：在Oracle中merge into
+
+--在hive中构建拉链表使用左连接来完成拉链表的闭链操作，然后在使用union all完成开链操作，最后将处理的结果使用
+--insert overwrite将原来拉链表的数据进行覆盖操作。
+
+拉链表语法结构：
+
+insert overwrite table 临时拉链表
+select  a.*,'抽取日期','9999-12-31'  from  原表 a where 日期=抽取日期
+union all
+select 
+   a.列名,
+   .....
+   if(b.列名 is not null and a.失效时间='9999-12-31','抽取日期-1',a.失效日期)
+ from 拉链表 a left join (select * from 原表 where 日期=抽取日期) b
+on a.关联字段=b.关联字段
+
+
+--将临时拉链表中的数据添加到目标拉链表中
+insert overwrite table 目标拉链表
+select * from 临时拉链表；
+
+注意：在实际的工作中，为了数据安全，会先创建一张临时拉链表，将查询出来的数据先insert into临时拉链表，
+然后确认拉链表数据没有问题，然后再将临时拉链表中的数据加载到目标拉链表。
+
+
+
+
+insert into user_his
+select u.*,'2024-3-17','9999-12-31' from user_t u;
+select * from user_his;
+
+
+insert overwrite table user_his
+--在hive中进行开链操作
+select u.*,to_date('2024-3-19'),to_date('9999-12-31') from user_t u where last_date='2024-3-19'
+union all
+--在hive中如何实现拉链表关联操作
+select
+   u1.id,
+       u1.name,
+       u1.last_date,
+       u1.begin_date,
+       to_date(`if`(u2.id is not null and u1.end_date='9999-12-31','2024-3-18',u1.end_date))
+from user_his u1 left join (select * from user_t where last_date='2024-3-19') u2
+on u1.id=u2.id;
+
+
+
+
+【sqoop】:是hadoop中的一个ETL工具
+
+ 功能：利用一些命令参数，将hadoop中的数据导出到关系型数据库中，或者可以将关系型数据库中的数据导入hadoop平台中。
+ 由于sqoop依附于hadoop的一个组件，所以在使用之前必须要先将sqoop集成到hadoop中
+ 集成sqoop
+  准备工作：
+  1.准备安装
+  2.准备各种关系型数据库的驱动包
+     mysql驱动包：mysql-connector-java-5.1.49.jar 
+	 oracle驱动：ojdbc6.jar
+  开始安装：
+    1.将压缩文件解压到指定的路径
+	  [root@master ~]# tar -zxvf sqoop-1.4.7.bin__hadoop-2.6.0.tar.gz -C bigdata/
+    2.将解压文件进行重名了
+	  [root@master ~]# mv bigdata/sqoop-1.4.7.bin__hadoop-2.6.0/    bigdata/sqoop1.4
+    3.添加环境变量
+	  vi ~/.bashrc
+	  添加一下环境变量
+			  #添加sqoop的路径
+		export SQOOP_HOME=/root/bigdata/sqoop1.4
+		export PATH=${PATH}:${SQOOP_HOME}/bin
+		export CATALINA_BASE=${SQOOP_HOME}/server
+		export LOGDIR=${SQOOP_HOME}/logs
+    4.设置配置文件生效
+	   [root@master ~]# source ~/.bashrc
+    5.修改sqoop的配置文件
+	  将sqoop安装目录下面的conf下面的配置文件sqoop-env-template.sh复制一份，
+	  命名为sqoop-env.sh
+	  [root@master conf]# cp sqoop-env-template.sh sqoop-env.sh
+	  打开复制之后的文件：
+	  [root@master conf]# vi sqoop-env.sh
+	  将一下路径前面的#删除，并且添加对应的路径
+	  
+		#Set path to where bin/hadoop is available
+		export HADOOP_COMMON_HOME=/root/bigdata/hadoop-2.7.7
+
+		#Set path to where hadoop-*-core.jar is available
+		export HADOOP_MAPRED_HOME=/root/bigdata/hadoop-2.7.7
+
+		#Set the path to where bin/hive is available
+		export HIVE_HOME=/root/bigdata/hive2.3.3
+    6.将数据库的驱动包放到sqoop安装路径下面的lib文件夹中
+	        mysql驱动包：mysql-connector-java-5.1.49.jar 
+			oracle驱动：ojdbc6.jar
+    7.测试是否安装成功
+	  sqoop version
+	  
+	8.测试是否能够连接数据库
+sqoop list-databases \
+--connect jdbc:mysql://192.168.1.119:3306 \
+--username root \
+--password 123456
+	  
+	  
+【sqoop的使用】
+    1.help:查看sqoop中的一级命令
+	2.list-databases:查看数据库中的所有的数据库列表，如果是Oracle数据库对应的是所有的用户模式
+	3.list-tables:查看数据库下面所有的表
+	4.import:将数据库中的表导入到hdfs平台上
+	5.export:将hdfs上的数据导出到数据库中
+	6.job:用来封装一个sqoop的任务。
+	
+	--查看Oracle数据库中的scott用户模式下面的所有的表
+	sqoop list-tables \
+	--connect jdbc:oracle:thin:@192.168.1.119:1521:orcl \
+	--username scott \
+	--password 123456
+	
+	
+	1.导入命令：数据库中的表------------>hdfs
+	【import】
+	   sqoop import --help  :查看import下面的所有命令
+	   
+	   --connect:设置数据库的连接字符串
+		   mysql连接字符串:jdbc:mysql://数据库服务器IP地址:3006/数据库名
+		   Oracle连接字符串：jdbc:oracle:thin:@数据库服务器的IP地址:1521:数据库实例名
+	   --username:数据库连接的用户名
+	   --password：数据库连接的密码
+	   --password-file:设置保存密码的文件地址
+	   --driver:设置数据库驱动类的名称，一般系统会自动设别不需要设置
+	   --table:设置导入的表名，如果导入的是Oracle中的表则表名必须要使用大写。
+	   --columns:设置导入的表中的列的名称，多个列之间使用逗号分开，如果导入的Oracle数据库则列名也必须要大写。
+	   --where:设置导入数据的过滤条件
+	   --query:使用sql语句的方式将查询出来的结果导入
+	   --target-dir:设置导入的数据再hdfs上保存的路径
+	   --delete-target-dir:由于sqoop默认进行全量导入数据，所以不允许导入的目录提前存在，如果提前存在则再导入的时候就会报错，
+	      所以需要设置delete-target-dir，如果目标目录存在就会先将目标目录删除。
+	   --fields-terminated-by:设置文件中列之间的分隔符
+	   --num-mappers:设置启动mapreduce的数量，主要就是用来设置并行任务的数量。
+	   -m:等同于--num-mappers
+	   --split-by:设置再处理数据的时候切片是根据哪一列进行切片。
+	   --autoreset-to-one-mapper:设置只启动一个mapreduce程序
+	   --incremental:设置增量导入数据的方式
+	   --check-column:设置增量的参考列
+	   --last-value:设置上次导完数据之后增量列的最大值。
+	   
+
+--全量导入数据
+  --将oracle中emp表中的数据导入到hdfs上
+  --全部导入   --table
+  sqoop import \
+  --connect jdbc:oracle:thin:@192.168.1.119:1521:orcl \
+  --username scott \
+  --password 123456 \
+  --table EMP \
+  --target-dir /sqoop/emp \
+  --delete-target-dir \
+  --num-mappers 1 \
+  --fields-terminated-by ',' 
+  
+  --导入emp表中的编号，姓名，职位，工资   --columns
+    sqoop import \
+  --connect jdbc:oracle:thin:@192.168.1.119:1521:orcl \
+  --username scott \
+  --password 123456 \
+  --table EMP \
+  --columns EMPNO,ENAME,JOB,SAL \
+  --target-dir /sqoop/emp \
+  --delete-target-dir \
+  --num-mappers 1 \
+  --fields-terminated-by ',' 
+  
+  --导入emp表中工资大于2000的员工的编号，姓名，职位，工资   --where
+	
+	
+	    sqoop import \
+  --connect jdbc:oracle:thin:@192.168.1.119:1521:orcl \
+  --username scott \
+  --password 123456 \
+  --table EMP \
+  --columns EMPNO,ENAME,JOB,SAL \
+  --where 'sal>2000' \
+  --target-dir /sqoop/emp \
+  --delete-target-dir \
+  --num-mappers 1 \
+  --fields-terminated-by ',' 
+  
+  
+  --导入员工的编号，姓名,职位，工资，部门名称，部门位置    --query
+  	    sqoop import \
+  --connect jdbc:oracle:thin:@192.168.1.119:1521:orcl \
+  --username scott \
+  --password 123456 \
+  --query 'select empno,ename,job,sal,dname,loc from emp e join dept d on e.deptno=d.deptno where $CONDITIONS' \
+  --target-dir /sqoop/emp_dept \
+  --delete-target-dir \
+  --num-mappers 1 \
+  --fields-terminated-by ','
+	  
+
+注意：1.在使用query的时候不能使用table,他们两个只能存在一个
+      2.在query的sql语句后面必须要设置一个$CONDITIONS，如果有where语句则直接在where条件后面写and $CONDITIONS,如果没有where
+	    则需要设置where $CONDITIONS
+		
+	
+--将sqoop数据抽取封装到shell脚本中
+#导入数据的函数
+ import_data(){
+  sqoop import \
+  --connect jdbc:oracle:thin:@192.168.1.119:1521:orcl \
+  --username scott \
+  --password 123456 \
+  --query "$1 and \$CONDITIONS" \
+  --target-dir /sqoop/temp/$2 \
+  --delete-target-dir \
+  --num-mappers 1 \
+  --fields-terminated-by ','
+}
+
+#导入emp函数
+import_emp(){
+
+ import_data 'select * from emp where 1=1' emp
+
+}
+
+#导入dept函数
+import_dept(){
+import_data 'select * from dept where 1=1' dept
+
+}
+
+#判断
+case $1 in
+"emp")
+ import_emp
+;;
+"dept")
+import_dept
+;;
+"all")
+import_emp
+import_dept
+;;
+esac
+
+	  	
+		
+		
+
+

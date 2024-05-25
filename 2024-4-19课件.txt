@@ -1,0 +1,372 @@
+1.hive中的表类型
+  1.内部表：在创建表的时候没有设置external关键字，则创建的是一张内部表
+           表结构中：table_type:managed_table
+           特点：在删除表的时候，不光删除表结构，会同步将hdfs上对应的文件夹一起删除。
+		   使用场景：由于内部表在删除表的时候会将数据文件同步删除，所以在实际的工作中，一些核心表是不会采用内部表，
+		     如果要临时保存一些数据，或者是一些临时的计算结果则可以使用内部表。
+		   
+  
+  2.外部表：在创建表的时候指定了external关键字，则创建的属于一张外部表
+           表结构中：table_type:external_table
+		   特点：在删除表的时候，只删除表结构，不会删除hdfs上对应的文件夹
+		   使用场景：在实际的工作中，绝大部分的表都会采用的是外部表。
+		   
+		 
+    内部表和外部表之间允许相互转换
+	    语法：alter table 表名 set tblproperties('EXTERNAL'='FALSE|TRUE')
+		      EXTERNAL=FALSE:代表设置为内部表
+			  EXTERNAL=TRUE:代表设置为外部表
+		   
+	--将外部表转换成内部表
+	alter table stu_external set tblproperties ('EXTERNAL'='FALSE');
+	--将内部表转换成外部表
+	alter table stu_external set tblproperties ('EXTERNAL'='TRUE');	  
+
+
+    如果要删除外部表的数据文件方式：
+      1.先将表结构转换成内部表，然后删除内部表
+      2.先删除表结构，然后使用hdfs的命令来删除：hdfs dfs -rm -r 文件地址	  
+	  
+	  
+	--创建了一张外部表
+	 create external table stu_external(
+		sno int,
+		sname string,
+		sex string,
+		age int,
+		birthday date
+	 )
+	 row format delimited
+	 fields terminated by ',';  
+		   
+		   
+  3.临时表：
+    1.with ...as
+	 作用：就是用来简化sql语句的编写，可以将一条嵌套的sql语句中一部分拿出来形成一张临时表，然后在后面的sql语句中直接使用
+	       临时表名来使用。
+		语法：with 临时表名 as(select语句),
+		           临时表名 as(select语句),
+				   .....
+			  select  语句;
+         
+		注意：1.在使用with临时表的时候后面必须要接一条select语句
+		      2.with临时表只能在当前的sql语句中使用
+			  
+			  
+		with tmp as ( select  adds from stu_4 )
+		select * from tmp;	  
+	2.temporary临时表
+      可以简化sql语句的编写，并且可以在当前的会话中临时保存一些数据。
+      语法：create temporary table 临时表名
+            as
+            select 语句;	
+      特点：1.临时表不支持分区
+	        2.临时表中只能保存当前会话中的数据，如果当前的会话断开，则系统会自动删除临时表以及数据文件。
+			3.临时表中的数据也是会保存到hdfs中临时文件。
+			4.临时表的名称允许和普通表的名称相同，则在当前会话中操作的时候全部都操作临时表，
+			  也就是说如果创建了一个临时表和普通表名一样，则相当于在当前的会话中普通表失效。
+			  
+			  
+	   create temporary table stu_2
+		as
+			select hobbys from stu_2;
+2.hive的查询操作
+   hive中的sql和Oracle中的sql差不多，但是还是有一些区别：
+   1.在hive中尽量不要使用中文作为别名。
+   2.hivesql的执行顺序和oracle的执行顺序有区别
+     在hivesql中having语句在select语句之后执行，所以在having后面是允许使用select后面的别名
+	 --查询平均工资大于2000的部门的编号
+	select deptno,avg(sal) avg_sal from emp group by deptno having avg_sal>2000;
+
+   3.hivesql中order by后面不允许直接写聚合函数，必须要在select后面设置别名之后，使用别名来进行排序。
+     --查询部门的平均工资，按照工资从大到小排序
+	select deptno,avg(sal) avg_sal from emp group by deptno order by avg_sal desc;
+
+   4.hivesql中是没有rownum,如果要获取某一个区间中的数据，则必须要使用limit关键字。
+     语法：select * from 表名 limit [n,]m
+	 n:代表行的开始位置，从0开始
+	 m:获取的条数
+	 注意：n是可以省略，如果省略掉则代表获取前m条数据
+	 
+	 --查询工资最高的员工的信息
+	select * from emp order by sal desc limit 1;
+	--获取第5到10条数据
+	select * from emp limit 4,6;
+	--获取前10条数据
+	select * from emp limit 10;
+   5.hive中不支持单行选择运算符的子查询，但是支持exits和in
+     --查询不是最高工资的员工的信息
+	select * from(
+	select e.*,max(sal)over() max_sal from emp e) a where sal!=max_sal;
+   6. hivesql中如果有sql嵌套，则必须要给嵌套sql语句设置别名
+   7.hivesql中表关联的时候默认不允许进行笛卡尔积以及非等值连接的操作，因为默认的严格模式，
+     如果有需要则可以将模式设置为非严格模式：
+	 set hive.mapred.mode=nonstrict;
+   8.函数名称和Oracle中是有区别的。
+   
+hive中的排序方式：
+   1.order by:主要就是对数据进行全局排序，通常如果要对表中的所有的数据进行整体排序，则可以使用。
+             除非要进行结果整体排序，否则不推荐使用。
+			 由于order by要保证所有的数据有序，所以在使用order by的时候不管数据量有多大，只会启用一个mapreduce进行处理。
+			 
+			select * from emp order by sal desc limit 1;
+			 
+   2.sort by:不会进行全局排序，如果处理数据的时候有多个reduce,则只能保证每一个reduce中的数据是有顺序的。
+             一般sort by可以配合distribute by 一起使用，distribute by用来设置以哪一个列进行数据的分配。
+			 
+			 语法：select * from 表  [distribute by 列名] sort by 列名 [desc|asc];
+			 
+		使用场景：在实际的工作中如果要查询表中的topn数据，则使用order by的效率比较低，则可以使用sort by进行排序。
+        topn实现的过程：需要开启两个mapreduce程序，第一个mapreduce程序先将数据在每一个reduce中进行排序，然后在将每一个reduce排序后的结果的前n获取到，
+			            获取到之后将结果交给第二个mapreduce放到一起进行统一排序，然后再获取前n条。		
+			 
+			--设置reduce的数量
+			set mapreduce.job.reduces=3;
+			
+			
+			--查询员工的工资前3
+			select * from emp order by sal desc limit 3;
+			--更高效的方案
+			select * from emp sort by sal desc limit 3;
+			 
+             
+   3.cluster by: 分桶排序，不会进行全局排序，只会在每一个reduce中进行排序。
+                 如果distribute by和sort by的列名一样的时候效果个cluster by一致的。
+				 但是cluster by允许进行降序排序，只能升序。
+				 select * from emp cluster by sal;
+				--等同于
+				select * from emp distribute by sal sort by sal;
+				 
+ 
+ 
+hive中的系统函数：
+   hive中的开窗函数和Oracle中一样。
+   1.查看hive中的系统函数
+     show functions;
+   2.查看函数结构
+     desc function [extended] 函数名;
+	
+    --查看函数的结构和用法
+	desc function round;
+	--查看函数结构用法以及案例
+	desc function extended round;
+	
+【算术类】
+   --四舍五入，向上取整，向下取整
+select round(12.34567,2),ceil(12.3456),`floor`(12.3456) ;
+--获取随机数(范围0-1)
+select rand();
+--获取1-100
+select ceil(rand()*100);
+--取余
+select mod(10,3),10%3;
+--计算次幂
+select pow(2,3),power(2,3);
+--开平方
+select sqrt(9);
+【日期函数】
+日期格式：
+   y:年   yy:两位数年   yyyy:四位数的年
+   M:月份       M  8    MM  08
+   d:月中的天，日期  
+   D:年中的天
+   w:一年中的第几周
+   W:一个月中的第几周
+   E:星期几
+   a:上午|下午
+   H:24小时制
+   h:12小时制
+   m:分钟
+   s:秒
+   S:毫秒
+   
+  --获取当前日期(年月日),获取到的是date类型的数据
+select `current_date`();
+--获取当前的日期以及时间，获取到的是timestamp类型的数据
+select `current_timestamp`();
+--查看至今秒数
+select unix_timestamp();
+--查看到2023-8-29号秒数:相当于将一个日期转换成秒数
+select unix_timestamp('2023-8-29 12:30:56');
+select unix_timestamp('20230829123056','yyyyMMddHHmmss');
+--将一个秒数转换成日期,如果不设置格式则直接转换为默认的格式，设置了格式则按照格式进行转换
+select from_unixtime(1693283456,'yyyy/MM/dd HH:mm:ss E a');
+--获取年，月，日，。。。。。
+select year(`current_date`()),month(`current_date`()),day(`current_date`()),
+       hour(`current_timestamp`()),minute(`current_timestamp`()),second(`current_timestamp`())
+--日期的格式化
+select date_format(`current_date`(),'yyyy/MM/dd');
+--功能类似于Oracle中trunc()
+--定位到年初
+select floor_year(`current_timestamp`());
+--定位到月初
+select floor_month(`current_timestamp`());
+--定位到天
+select floor_day(`current_timestamp`());
+--定位到星期的开始:星期一
+select floor_week(`current_timestamp`());
+--定位到小时的开始
+select floor_hour(`current_timestamp`());
+--定位到季度的开始
+select floor_quarter(`current_timestamp`());
+
+--10天之后
+select date_add(`current_date`(),10);
+--10天前
+select date_sub(`current_date`(),10);
+--10个月之后
+select add_months(`current_date`(),10);
+--10年之后
+select add_months(`current_date`(),120);
+--计算两个日期之间相差的天数
+select datediff(`current_date`(),'2023-5-13');
+--计算两个日期之间相差的月数
+select months_between(`current_date`(),'2023-5-13');
+--计算两个日期相差多少年
+select months_between(`current_date`(),'2013-5-13')/12;
+--获取月份的最后一天
+select last_day(`current_date`());
+--获取下一个星期几,星期可以使用简写：MO   TU   WE  TH  FR  SA  SU
+select next_day(`current_date`(),'MO'); 
+   
+【字符串类函数】
+--字符串拼接，支持’||‘进行拼接
+select ename||sal from emp;
+--concat(s1,s2,s3,......):如果拼接的数据有null则结果为null
+select concat(ename,sal,job,comm) from emp;
+--concat_ws(’分隔符‘,s1,s2,s3,.......):只能拼接字符串,支持空值拼接
+select concat_ws('-',ename,job,hiredate,cast(comm as string)) from emp;
+--length():获取字符串的长度
+select length(ename) from emp;
+--reverse():将字符串内容进行反转
+select ename,reverse(ename) from emp;
+--trim():去除字符串左右两边的空格
+--ltrim():
+--rtrim():
+select 'aaaaa'||trim('      hel     lo     ')||'bbbbbbb';
+select 'aaaaa'||ltrim('      hello     ')||'bbbbbbb';
+select 'aaaaa'||rtrim('      hello     ')||'bbbbbbb';
+--replace(s,旧字符串，新字符串):替换
+select replace('    sffs    dsf   dsf   dsf   dsf   dsf   ',' ','');
+--upper()|ucase():转换大写
+select upper('aasd'),ucase('asdasd');
+--lower()|lcase():转换小写
+select lower('ADASA'),lcase('SDFSDF');
+
+--substr(s,开始位置,截取长度)|substring():字符串截取
+select substr('border.png',7,3),substring('border.png',7,3);
+
+--split(s,'分隔符'):将字符串按照指定的分隔符拆分成一个字符串数组，分隔符支持正则表达式
+--注意：如果要将一个字符串变成一个数组则就需要使用split函数
+select split('jsdfhgs,sdfsdf,sfsdf,sdfsdf',',');
+select split('asdsdf23234dsfsdf3434dgdfgd567gfhfgh','\\d+');
+
+--collect_list():将多行中的某一列拼接成一个数组,允许下重复数据存在
+-- collect_set():将多行中的某一列拼接成一个数组,会进行去重操作
+select deptno,collect_list(job) from emp group by deptno;
+select deptno,collect_set(job) from emp group by deptno;
+
+--find_in_set(子字符串,字符串):在一个列表中查询子字符串出现的位置，字符串中的每一个子字符串必须要使用逗号分开
+select find_in_set('aaa','qqqq,rrrr,yyyy,aaa,gggg');
+
+--str_to_map(s,'元素之间分隔符','键值之间的分隔符'):将一个字符串转换成map字典类型
+select str_to_map('name=zhangsan,age=18',',','=');
+--将员工的姓名和工资设置成一个map字典，键：姓名，值：工资
+select e.*,str_to_map(concat_ws('=',ename,cast(sal as string)),',','=') from emp e;
+
+--查询每一个部门中的员工的姓名和工资，将查询出来的每一个部门汇总成一条数据
+--查询出来的表结构：deptno     emps
+--              20          [员工1,员工2,....]
+--                          {姓名：工资,姓名:工资}
+select deptno,collect_list(str_to_map(concat_ws('=',ename,cast(sal as string)),',','='))from emp
+group by deptno;
+
+--?
+select deptno,concat_ws('=',ename,cast(sal as string)) as string from emp;
+
+--named_struct(属性名,属性值,属性名,属性值,........):
+select named_struct('name','zhangsan','age',18);
+--创建一张表：保存部门的信息
+--部门号    部门名    位置    员工列表
+create table dept_emp(
+    deptno int,
+    dname string,
+    loc string,
+    emps array<struct<empno:int,ename:string,job:string,mgr:int,hiredate:string,sal:decimal(16,2),comm:decimal(16,2)>>
+);
+select * from dept_emp;
+--添加数据
+insert into dept_emp
+select d.deptno,d.dname,d.loc,
+       collect_list(named_struct('empno',empno,'ename',ename,'job',job,'mgr',mgr,'hiredate',hiredate,'sal',sal,'comm',comm))
+       from emp e join dept d on e.deptno=d.deptno
+group by d.deptno, d.dname, d.loc;
+
+--[{"empno":7782,"ename":"CLARK","job":"MANAGER","mgr":7839,"hiredate":"1981/6/9 00:00:00","sal":2450,"comm":null},{"empno":7839,"ename":"KING","job":"PRESIDENT","mgr":null,"hiredate":"1981/11/17 00:00:00","sal":5000,"comm":null},{"empno":7934,"ename":"MILLER","job":"CLERK","mgr":7782,"hiredate":"1982/1/23 00:00:00","sal":1300,"comm":null}]
+--size():获取一个数组的长度
+select deptno,size(emps) from dept_emp;
+
+create table dept (
+    deptno int,
+    dname string,
+    loc string
+)row format delimited
+fields terminated by ',';
+
+load data local inpath '/root/DEPT.txt' into table dept;
+select * from dept;
+
+
+
+JSON:是javascript中的一个对象，主要就是用来保存一些数据或者是进行数据的传输。
+     
+	 json中主要包含两部分内容：
+	 1.对象：在json字符串中，使用大括号括起来的数据就代表一个json对象。
+	        json对象中的数据都必须要成对出现，一个键对应一个值，并且键必须要是字符串类型，值可以是任何数据类型。
+			键不允许重复，键和值之间必须要使用“:”分开，多个元素之间要使用“，”分开。
+			
+			
+	 2.数组：在json字符串中，使用[]来表示数组，数组中的元素使用逗号分开，数组中允许任何数据类型的数据，例如，可以是一个对象
+	 
+	 例如：
+	 [{"empno":7782,"ename":"CLARK","job":"MANAGER","mgr":7839,"hiredate":"1981/6/9 00:00:00","sal":2450,"comm":null},
+	 {"empno":7839,"ename":"KING","job":"PRESIDENT","mgr":null,"hiredate":"1981/11/17 00:00:00","sal":5000,"comm":null},
+	 {"empno":7934,"ename":"MILLER","job":"CLERK","mgr":7782,"hiredate":"1982/1/23 00:00:00","sal":1300,"comm":null}]
+
+解析json字符串：
+ 使用函数：get_json_object():
+ 在解析json数据的时候使用“$”来代表json字符串，
+ 如果解析的是一个json数组，则操作方式: $.[i]    获取json数组中的第i个元素
+ 如果解析的是一个json对象，则获取对象中的属性的值：  $.属性名
+with tmp as (
+    select '[{"beCommentWeiboId":"","beForwardWeiboId":"","catchTime":"1387158842","commentCount":"1288","content":"秋天要走了嗎？捨不得你耶再留一回回兒吧！@最美和声","createTime":"1382041054","info1":"","info2":"","info3":"","mlevel":"","musicurl":[],"pic_list":["http://ww4.sinaimg.cn/square/687489f8jw1e9ottklbauj20vk0l1whj.jpg","http://ww3.sinaimg.cn/square/687489f8jw1e9ottmdchlj20vk0l1mzx.jpg","http://ww3.sinaimg.cn/square/687489f8jw1e9ottoedd1j20et0m8acf.jpg","http://ww4.sinaimg.cn/square/687489f8jw1e9ottrjaszj20hs0npjvg.jpg","http://ww1.sinaimg.cn/square/687489f8jw1e9ottts4fqj20hs0qp41r.jpg","http://ww1.sinaimg.cn/square/687489f8jw1e9ottwp24xj20hs0q9771.jpg","http://ww4.sinaimg.cn/square/687489f8jw1e9ottyt3d7j20hs0buwg0.jpg","http://ww2.sinaimg.cn/square/687489f8jw1e9otu0urofj20hs0dcdhw.jpg","http://ww3.sinaimg.cn/square/687489f8jw1e9otu9znc8j218g0xc17y.jpg"],"praiseCount":"6860","reportCount":"1303","source":"iPhone客户端","userId":"1752467960","videourl":[],"weiboId":"3634605976485130","weiboUrl":"http://weibo.com/1752467960/Aewg5rd4S"}]
+' str
+)
+insert into weibo
+select get_json_object(str,'$.[0].content') ,
+        split(regexp_replace(get_json_object(str,'$.[0].pic_list'),'\\[|\\]|"',''),',') from tmp;
+
+select * from weibo;
+create table weibo(
+    content string,
+    pic_list array<string>
+);
+
+select * from weibo;
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+   
+   
+3.hive中的分区和分桶

@@ -1,0 +1,360 @@
+1.hive中的数据类型
+  1.基本数据类型：
+    整数型：主要用来保存整数
+	      tinyint:---------------byte    1字节
+		  smallint:--------------short   2字节
+		  int：------------------int     4字节
+		  bigint:----------------long    8字节	  
+		  
+		  工作中建议：int和bigint
+
+	浮点型：主要就是用来保存小数
+	      float:单精度浮点
+		  double:双精度浮点
+		  decimal:  
+		  decimal(位数,小数位)         decimal(5,2)
+		  
+		  工作中建议：decimal
+	字符串类型：
+	      string:长度可变的数据类型，相当于oracle数据库中的varchar2
+
+	日期时间类型：
+	     date:一般只有年月日    默认的格式：yyyy-mm-dd
+		 timestamp：可以精确到纳秒
+		 
+		工作中建议：可以使用bigint|string|date 
+		 	 
+	布尔类型：
+	    boolean:  true|false
+	
+  2.复杂数据类型：
+    1.array:数组类型
+	  可以用来保存多条数据的一种数据结构，但是在hive中要求数组中保存的数据类型必须要一致。
+	  定义语法：
+	  列名  array<数据类型>
+	  hive中查询出来的数组的结构：[元素1,元素2，元素3,.....]
+      查询的时候要获取指定的某一个数组中的元素，通过数组的下标来获取，从0开始
+	  语法：列名[下标]
+	
+	2.map字典：
+	  map字典中的数组主要是保存成对出现的数据，也就是每一个元素是必须要有一个key和一个value组成，key不允许重复
+	  定义语法：
+	  列名 map<数据类型,数据类型>
+	  在hive中查询出来的map字典的数据结构：{键:值,键:值,.......}
+	  在获取map字典中的某一个键对应的值语法：列名["键"]
+	
+	
+	3.struct:结构体
+	  相当于一个对象，对象中可以拥有很多属性，如果先在要保存的数据有多个属性要存储，则建议使用结构体。
+	  属性在结构体中是固定的。
+	  定义语法：
+	  列名 struct<属性名:数据类型,属性名:数据类型,.......>
+	  在hive中结构体查询出来的数据结构和map字典是一样：{属性名:值,属性名:值,.......}
+	  获取结构体中的属性值：
+	  列名.属性名
+  
+     --查询学生所在的市
+	 select adds.shi from stu_4;
+  
+  
+  
+  
+  
+  
+  
+ 2.hive中的建表语句：
+  语法：
+  create [external] table [if not exists] 表名 (
+     列名   数据类型,
+	 列名   数据类型,
+	 ........
+  )row format delimited
+  fields terminated by '列之间的分隔符'
+  collection items terminated by '列表中元素之间的分隔符'
+  map keys terminated by '键值之间的分隔符';
+  
+  
+ --创建一张学生表，学号，姓名，性别，年龄，生日
+ create table stu_1(
+    sno int,
+	sname string,
+	sex string,
+	age int,
+	birthday date
+ )
+ row format delimited
+ fields terminated by ',';
+ 
+ 添加数据：
+ 在虚拟机中创建一个stu_1.txt文件，然后添加以下内容
+ 
+1008,小名,男,18,2000-10-08
+1001,小会,男,18,2000-10-08
+1002,小黑,男,18,2000-10-08
+1003,小白,男,18,2000-10-08
+1004,小绿,男,18,2000-10-08
+1005,小子,男,18,2000-10-08
+1006,小蓝,男,18,2000-10-08
+1007,小红,男,18,2000-10-08
+
+将该文件上传到hdfs上表对应的文件夹下面
+[root@master ~]# hdfs dfs -put stu_1.txt /user/hive/warehouse/demo.db/stu_1
+
+查询表中的数据：
+select * from stu_1;
+
+
+查询表结构：
+  desc 表名;          简单查看表中的列以及数据类型
+  desc formatted 表名;   查看表详细的信息，包括属性，列等等
+  desc stu_1;
+  desc formatted stu_1;
+查看表的建表语句
+ show create table 表名;
+show create table stu_1;
+
+
+ --创建一张学生表，学号，姓名，性别，年龄，生日，爱好
+ create table stu_2(
+    sno int,
+	sname string,
+	sex string,
+	age int,
+	birthday date,
+	hobbys array<string>
+ )
+ row format delimited
+ fields terminated by ','
+ collection items terminated by ':';
+ 
+ 添加数据：
+1008,小名,男,18,2000-10-08,看书:写字:打篮球
+1001,小会,男,18,2000-10-08,吃饭:睡觉:打豆豆
+1002,小黑,男,18,2000-10-08,逛街:看电影
+1003,小白,男,18,2000-10-08,学习:足球
+1004,小绿,男,18,2000-10-08,跑步:游泳
+
+
+ 
+ select * from stu_2;
+--查询学生的第一个爱好
+select hobbys[2] from stu_2;
+select hobbys[0] hobby from stu_2 where sname='小黑';
+
+
+
+ --创建一张学生表，学号，姓名，性别，年龄，生日，爱好,成绩
+ create table stu_3(
+    sno int,
+	sname string,
+	sex string,
+	age int,
+	birthday date,
+	hobbys array<string>,
+	scores map<string,int>
+ )
+ row format delimited
+ fields terminated by ','
+ collection items terminated by ':'
+ map keys terminated by '_';
+ 
+ 
+ 添加数据：
+1008,小名,男,18,2000-10-08,看书:写字:打篮球,语文_90:数学_99:英语_88
+1001,小会,男,18,2000-10-08,吃饭:睡觉:打豆豆,语文_70:数学_79:英语_98
+1002,小黑,男,18,2000-10-08,逛街:看电影,语文_87:数学_60:英语_68
+1003,小白,男,18,2000-10-08,学习:足球,语文_99:数学_78:英语_80
+1004,小绿,男,18,2000-10-08,跑步:游泳,语文_94:数学_97:英语_88
+
+--查询每一个学生的语文成绩
+select scores["语文"] from stu_3;
+
+
+ --创建一张学生表，学号，姓名，性别，年龄，生日，爱好,成绩,地址
+ create table stu_4(
+    sno int,
+	sname string,
+	sex string,
+	age int,
+	birthday date,
+	hobbys array<string>,
+	scores map<string,int>,
+	adds struct<sheng:string,shi:string,xian:string>
+ )
+ row format delimited
+ fields terminated by ','
+ collection items terminated by ':'
+ map keys terminated by '_';
+ 
+  添加数据：
+1008,小名,男,18,2000-10-08,看书:写字:打篮球,语文_90:数学_99:英语_88,广东:深圳:龙岗
+1001,小会,男,18,2000-10-08,吃饭:睡觉:打豆豆,语文_70:数学_79:英语_98,广东:惠州:惠阳
+1002,小黑,男,18,2000-10-08,逛街:看电影,语文_87:数学_60:英语_68,广东:深圳:龙华
+1003,小白,男,18,2000-10-08,学习:足球,语文_99:数学_78:英语_80,广东:东莞:凤岗
+1004,小绿,男,18,2000-10-08,跑步:游泳,语文_94:数学_97:英语_88,广东:深圳:福田
+
+--查询学生所在的市
+select adds.shi from stu_4;
+
+
+
+3.hive中文件的存储格式：
+关键字：stored as
+
+  create [external] table [if not exists] 表名 (
+     列名   数据类型,
+	 列名   数据类型,
+	 ........
+  )row format delimited
+  fields terminated by '列之间的分隔符'
+  collection items terminated by '列表中元素之间的分隔符'
+  map keys terminated by '键值之间的分隔符'
+  stored as '文件存储格式';
+  
+  
+hive中存储格式有以下5种：
+   1.textfile:默认的文件存储格式
+       不会对文件进行压缩处理，也不支持文件的切片操作，所以在进行读写数据的时候IO消耗比较大，并且数据处理的时候效率也会比较低。
+	   相当于将原来的文件拷贝一份保存到hdfs上。
+	   如果文件比较小，则可以选择使用textfile格式
+      存储方式：行式存储
+	  
+	常见的压缩格式：
+	Gzip   Bzip2   Lzo   snappy
+	  
+   
+   2.sequencefile:二进制文件存储格式，会将保存的数据转换成二进制编码，然后进行保存。
+      支持压缩，并且也支持数据切片。
+	  存储方式：行式存储
+	  
+   3.rcfile:
+      支持压缩，并且也可以进行切片操作，但是现在在工作种基本上都是用orc替换了。
+	  存储方式：行列混合存储
+	  先将数据按照行进行水平切块，在每一个数据块中再按照列进行存储，这样就可以保证要查询的每一条数据都属于同一个数据块，避免跨数据块访问数据。
+	  结合了行式存储和列式存储的优势。
+	  
+   4.orc:在hive0.11版本中退出的一款文件存储格式，相当于rcfile的升级版
+         在进行数据的压缩以及处理方面进行也更深入的优化，所以效率要高于rcfile，
+		 在hive中使用特别广泛。
+   
+   
+   5.parquet:是hadoop生态圈中的一种文件的存储方式,可以使用在大多数的大数据计算框架中（spark,flink,hive,......）
+            是以二进制文件的形式进行保存。
+			支持压缩，并且压缩比是最高的，不支持数据的增删改操作。
+			存储方式：列式存储
+
+  
+  
+  
+  
+行式存储：将每一行数据看作一个整体保存在一起。
+1   小明   12
+2   小白   13
+3   小红   14
+
+行式存储方式：
+1,小明,12;2,小白,13;3,小红,14;
+
+优点：1.在进行数据增删改操作的时候效率比较高。
+      2.在查询数据的时候如果要返回的是整行数据则效率比较高。
+缺点：在查询的时候如果要查询其中某一几列，则也需要将所有的数据块都进行查询，并且返回，这样就增加了
+      数据的磁盘IO和网络IO的数据量，从而导致效率比较低。
+	    
+使用场景：一般在OLTP环境种使用行式存储比较多，例如：日常的业务系统。
+
+
+列式存储：将一列数据看作市一个整体保存到一起
+列式存储方式：
+1,2,3;小明,小白,小红;12,13,14
+
+优点：1.在查询的时候如果按照列进行查询，则效率会非常高。
+      2.由于列式存储每一列的数据类型都是一致的，所以在压缩的时候会有更好的压缩比，从而将低数据的IO消耗，提高处理效率。
+缺点：在进行一些增删改操作的时候效率比较低。
+
+使用场景：一般使用在OLAP系统种，例如数据仓库
+
+
+
+
+4.文件的加载方式：
+  1.使用hdfs中的-put命令来加载数据
+   语法：hdfs dfs -put 文件名    hdfs上目标路径
+   
+   [root@master ~]# hdfs dfs -put stu_1.txt /user/hive/warehouse/demo.db/stu_sequencefile
+  
+   注意：由于-put不是hive的命令，所以使用该种方式上传的文件，并不会通知到hive，所以不会更新hive元数据库信息，
+          所以有可能会导致查询表的条数的时候和实际的情况有出入。
+  2.使用hive命令进行文件的加载：load data
+    语法：load data [local] inpath '本地文件的路径' [overwrite] into table 表名;
+	注意：1.local:如果文件来自于本地系统，则在加载的时候需要设置local，如果加载的文件来自于hdfs平台，则需要省略local
+	      2.如果设置了overwrite则代表将表中原来数据删除，然后将新的数据添加，相当于覆盖
+		    如果没有设置，则代表进行追加。
+		  3.如果要将hdfs上某一个文件夹中的文件加载到一个表中，进行的是移动操作，不是复制。
+		  
+	--加载数据
+	load data local inpath '/root/stu_1.txt' overwrite into table stu_textfile;
+
+	load data inpath '/user/hive/warehouse/demo.db/stu_1/stu_1.txt' overwrite into table stu_textfile;
+	
+  3.使用insert into来加载数据
+    语法：insert into |overwrite  table 表名 select 语句;
+	
+	注意：1.into:进行数据的追加    overwrite进行数据的覆盖
+	      2.必须要从另外一张表中会哦去数据然后加载到目标表中。
+		  3.该种方式加载数据是会启用mapreduce程序。
+		  
+	--加载数据
+	insert into table stu_sequencefile select * from stu_1;
+	
+	
+
+文件存储方式：
+  1.textfile:
+     特点：不压缩，不切片，存储空间消耗比较高，IO消耗也比较高，处理数据的速度也不较低，但是加载数据的方式比较快。
+	 存储方式：行式存储
+	 数据加载方式：-put |load data | insert into
+  2.sequencefile:
+     特点：支持压缩和切片，保存的是二进制编码文件，处理文件的效率相对textfile高
+	 存储方式：行式存储
+	 数据加载方式：insert  into
+  3.rcfile:
+     特点：可以压缩，也可以切片，处理数据的效率相对比较高
+	 存储方式：行列存储
+	 数据加载的方式：insert into
+  4.orc :
+      特点：压缩快，压缩比高，处理数据的效率比较高，是rcfile的升级版
+	  存储方式：行列存储
+	  数据的加载方式：insert into
+  5.parquet:
+       特点：压缩比率是最高的，处理数据的速度也是非常快，但是不支持数据的update和delete ,但是支持的计算框架比较多，通用性比较强。
+	   存储方式：列式存储
+	   数据的加载方式：insert into
+
+
+在实际的工作中：
+     使用比较多：textfile    orc   parquet
+	 textfile是唯一一个可以直接将本地的文件加载到hdfs上的文件格式，所以该种方式一般都是可以用作其他的文件格式的跳板，因此
+	 在大多数的项目中贴源层的数据基本上会采用textfile格式，但是通常会将textfile配合合适的压缩格式 一起使用来降低磁盘的使用，例如：LZO压缩格式
+	 中间其他层一般采用的是ORC或者parquet的方式进行存储，如果项目主要使用的是hive来进行计算，则直接选择使用orc，如果项目中还有集成其他的一些计算
+	 框架则建议使用parquet来进行操作。
+	 
+	 
+	 
+	 
+5.hive中文件的存储位置：
+   用来设置表对应的hdfs上文件的位置
+  关键字：location
+    create [external] table [if not exists] 表名 (
+     列名   数据类型,
+	 列名   数据类型,
+	 ........
+  )row format delimited
+  fields terminated by '列之间的分隔符'
+  collection items terminated by '列表中元素之间的分隔符'
+  map keys terminated by '键值之间的分隔符'
+  stored as '文件存储格式'
+  location '文件夹的位置';
+  
+  注意：1.location主要是用来设置表在hdfs上对应的文件夹的路径，如果创建表的时候没有设置location,则系统会自动在对应的数据库的文件夹下面
+        创建一个文件夹，该文件夹的名称和表名一致，如果在创建表的时候设置了location,则系统不会再创建文件夹，直接映射到指定的文件夹即可。
+		2.location中只能设置一个文件夹路径，不能设置一个具体的文件。

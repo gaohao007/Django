@@ -1,0 +1,215 @@
+1.hive
+  hive是基于hadoop平台的数据仓库中的一个工具，主要就是对HDFS上保存的文件进行查询和操作。
+  hive:将编写的hivesql语句转换成mapreduce程序，然后mapreduce程序再进行操作hdfs上的数据。
+  
+  
+  优点：1.学习入门比较简单
+         由于都是用的是类似于sql语句的hql语句来进行数据的操作，所以只要是会sql语句的人就可以很快上手。
+		2.海量数据处理
+		 hive是基于mapreduce，而mapreduce专门为海量的数据处理设计的一种计算框架。
+		3.可扩展性
+		 hive中支持自定义函数，可以根据自己的需求来编写java代码实现自定义函数。
+		4.良好的容错性
+		
+   缺点：
+       1.hive执行效率比较低
+	   2.hive中的sql表达能力是有限的，并不一定能满足所有的需求。
+	   3.hive调优比较麻烦
+	   
+hive的工作流程
+
+hive的集成操作：
+ 注意：如果hadoop是搭建再集群中，则只需要在主服务器中安装hive即可。
+ 准备工作：
+  1.准备一个mysql数据库最为hive的元数据库
+    mysql5.X
+  2.准备hive的安装包
+    hive2.3.3
+  3.准备mysql的驱动包
+    mysql-connector-java-5.1.49.jar 
+	注意：如果mysql使用的是8.X版本则对应的驱动包的版本也必须要8以上。
+
+
+开始安装：
+  1.安装mysql数据库
+     安装过程参考文档
+  2.使用mysql的客户端工具，在mysql中创建一个新的数据库，主要是用来保存hive中的元数据信息。
+     #创建一个数据库
+	CREATE DATABASE hive;
+	#给root用户授予允许远程访问mysql中的hive数据库的权限
+	GRANT ALL ON hive.* TO root@'%' IDENTIFIED BY '123456';
+	#刷新权限
+	FLUSH PRIVILEGES;
+	
+  3.安装hive
+    1.将hive的安装文件解压到bigdata文件夹下面
+	  [root@master ~]# tar -zxvf apache-hive-2.3.3-bin.tar.gz -C bigdata
+    2.重命名解压后的文件名称
+	  [root@master ~]# mv bigdata/apache-hive-2.3.3-bin/     bigdata/hive2.3.3
+    3.配置环境变量
+	  [root@master ~]# vi ~/.bashrc
+	  添加hive的环境变量
+	  #hive的环境变量
+		export HIVE_HOME=/root/bigdata/hive2.3.3
+		export HIVE_CONF_DIR=/root/bigdata/hive2.3.3/conf
+		export PATH=${PATH}:${HIVE_HOME}/bin
+    4.设置配置文件生效
+	   [root@master ~]# source ~/.bashrc
+    5.测试
+	   [root@master ~]# hive --version
+		Hive 2.3.3
+		Git git://daijymacpro-2.local/Users/daijy/commit/hive -r 8a511e3f79b43d4be41cd231cf5c99e43b248383
+		Compiled by daijy on Wed Mar 28 16:58:33 PDT 2018
+		From source with checksum 8873bba6c55a058614e74c0e628ab022
+    6.修改hive的配置文件：主要配置元数据库的信息
+	  在hive的配置文件的路径下面创建一个新的文件：hive-site.xml
+	  cd /root/bigdata/hive2.3.3/conf
+	  vi hive-site.xml
+	  添加以下内容
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?><!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+--><configuration>
+  <!-- WARNING!!! This file is auto generated for documentation purposes ONLY! -->
+  <!-- WARNING!!! Any changes you make to this file will be ignored by Hive.   -->
+  <!-- WARNING!!! You must make your changes in hive-site.xml instead.         -->
+  <!-- Hive Execution Parameters -->
+     <property>
+        <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:mysql://192.168.1.119:3306/hive?useSSL=FALSE</value>
+        <description>JDBC connect string for a JDBC metastore</description>
+     </property>
+     <property>
+        <name>javax.jdo.option.ConnectionDriverName</name>
+        <value>com.mysql.jdbc.Driver</value>
+        <description>Driver class name for a JDBC metastore</description>
+     </property>
+     <property>
+        <name>javax.jdo.option.ConnectionUserName</name>
+        <value>root</value>
+        <description>Username to use against metastore database</description>
+     </property>
+     <property>
+        <name>javax.jdo.option.ConnectionPassword</name>
+        <value>123456</value>
+        <description>password to use against metastore database</description>
+     </property>
+<property>
+        <name>hive.metastore.schema.verification</name>
+        <value>false</value>
+     </property>
+     <property>
+         <name>hive.scratch.dir.permission</name>
+         <value>733</value>
+     </property>
+</configuration>
+  7.将mysql的驱动包保存到hive安装目录下面的lib文件夹下面
+  8.初始化元数据库（只能成功初始化一次）
+    [root@master ~]# schematool -dbType mysql -initSchema
+	注意：初始化成功之后，查看mysql中的元数据库中的表是否生成，如果生成则代表格式化成功，否则代表格式化失败。
+	      格式化成功之后就不能再进行格式化，否则报错。
+	
+  9.测试
+     可以使用hive命令来进入hive，进行数据操作
+	 注意：在使用hive之前必须要将hadoop平台起来。
+	 [root@master ~]# hive
+      hive> show databases;
+	OK
+	default
+	Time taken: 5.63 seconds, Fetched: 1 row(s)
+	hive> create database demo;
+	OK
+	Time taken: 0.195 seconds
+	hive> show databases;
+	OK
+	default
+	demo
+	Time taken: 0.023 seconds, Fetched: 2 row(s)
+	hive> use demo;
+	OK
+	Time taken: 0.047 seconds
+	hive>
+
+   常见的hivesql操作：
+   1.查看hive中的所有的数据库
+      show databases;
+   2.切换数据库
+      use 数据库名;
+   3.创建一个新的数据库
+     create  database 数据库名;
+   4.查看当前所在的数据库
+     select current_database();
+   5.查看数据库下面的所有的表
+      show tables;
+   6.退出hive
+      exit；
+	 
+   ....
+   
+   
+   hive连接方式：
+     1.直接使用hive的命令来进行命令窗口操作hive
+	     直接执行sql语句
+	    [root@master ~]# hive -e 'select * from demo_t'
+		 执行sql文件
+		 hive -f 'SQL文件的名称'
+		 [root@master ~]# hive -f '/root/sql.sql'
+
+	2.使用一些客户端工具来连接hive
+	  注意：如果要使用客户端工具来连接hive则必须要先启动hive的服务
+	  启动命令：
+	    [root@master ~]# hiveserver2
+		注意：启动成功之后窗口一直停留在当前的状态，为了方便后续输出运行日志
+		
+		由于hadoop2.X本版中为了安全性考虑，在来连接hadoop平台的时候需要给用户进行设置授权。
+		在hadoop的核心配置文件中添加以下内容：core-site.xml
+		修改之前需要先关闭hadoop平台
+		[root@master hive2.3.3]# vi /root/bigdata/hadoop-2.7.7/etc/hadoop/core-site.xml
+		添加以下内容：
+		<!--设置权限-->
+		<property>
+		   <name>hadoop.proxyuser.root.hosts</name>
+		   <value>*</value>
+		</property>
+		<property>
+		  <name>hadoop.proxyuser.root.groups</name>
+		  <value>*</value>
+		</property>
+       
+	   修改完配置文件之后需要重启hadoop平台，然后开启hive服务
+	   
+	   将HDFS上根目录的权限修改为777，在修改的时候是要使用-R
+	   hdfs dfs -chmod -R 777 /
+	   
+	   
+	   
+	1.beeline客户端：自带的客户端工具
+	 连接语法：   beeline -u jdbc:hive2://主机名或者IP:10000 -n 用户名
+	
+	2.dbeaver:
+	3.datagrip:
+
+
+      	
+
+
+	 
+	 
+     
+      
+  
+  
+   

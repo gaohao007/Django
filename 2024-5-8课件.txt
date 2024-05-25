@@ -1,0 +1,123 @@
+Azkaban:调度工具
+  是一套简单的任务调度工具，是一个开源的java项目
+  主要用于再一个工作流中以一个特定的顺序来运行一组任务和流程。
+  Azkaban主要是通过KV文件（properties文件）以键值对的形式来建立任务以及任务之间的依赖关系，并且提供一个易于维护的web界面来配置和跟踪工作流程。
+  整体包括三部分：
+  1.dbserver:数据库服务器，主要用来保存上传的一些工作流一个Azkaban配置以及用户信息，也就是元数据。
+  2.webserver:web服务器：主要用来进行工作流的配置和维护。
+  3.executorserver:执行服务器：主要就是用来执行工作流。
+  
+Azkaban的安装和部署
+  1.将Azkaban部署到Linux系统中
+    1.准备安装包
+	  azkaban-web-server-2.5.0.tar.gz
+	  azkaban-executor-server-2.5.0.tar.gz
+	  create-all-sql-2.5.0.sql
+	2.开始安装
+	 1.再bigdata下面创建一个文件夹：azkaban
+	  [root@master bigdata]# mkdir azkaban
+     2.解压安装包
+	  [root@master bigdata]# tar -zxvf azkaban-web-server-2.5.0.tar.gz -C azkaban
+      [root@master bigdata]# tar -zxvf azkaban-executor-server-2.5.0.tar.gz -C azkaban
+     3.重命名安装包
+	   [root@master azkaban]# mv azkaban-executor-2.5.0/    executor
+	   [root@master azkaban]# mv azkaban-web-2.5.0/  web
+     4.配置数据库服务器：
+	   选择mysql作为zakaban的数据库服务器
+	   #创建一个数据库azkaban来作为azkaban的数据库服务
+		CREATE DATABASE azkaban;
+		#授权操作
+		GRANT ALL  ON azkaban.* TO root@'%' IDENTIFIED BY '123456';
+		#刷新权限
+		FLUSH PRIVILEGES;
+	  在创建好的azkaban的数据库中生成所需要的表
+	   运行sql脚本：create-all-sql-2.5.0.sql
+	 5.配置web服务器
+	   1.在webserver的安装目录下面生成一个keystore文件
+	    进入安装目录
+		[root@master azkaban]# cd web
+        运行以下命名来生成文件
+		[root@master web]# keytool -keystore keystore -alias jetty -genkey -keyalg RSA
+		注意：在生成的时候需要设置一个密码其他的直接一路回车，最后要输入是
+	   2.修改web服务器的配置文件
+	     进入安装目录下面的conf文件夹，然后修改azkaban.properties文件
+		[root@master conf]# vi azkaban.properties
+		修改时区：default.timezone.id=Asia/Shanghai
+		修改地址：user.manager.xml.file=/root/bigdata/azkaban/web/conf/azkaban-users.xml
+        修改mysql配置：
+			database.type=mysql
+			mysql.port=3306
+			mysql.host=192.168.1.119
+			mysql.database=azkaban
+			mysql.user=root
+			mysql.password=123456
+	    修改密码：
+			 jetty.keystore=keystore
+			jetty.password=123456
+			jetty.keypassword=123456
+			jetty.truststore=keystore
+			jetty.trustpassword=123456
+
+         进入安装目录下面的conf文件夹，然后修改azkaban-users.xml文件
+         [root@master conf]# vi azkaban-users.xml
+		 添加了一个用户xiaoming
+		 <azkaban-users>
+        <user username="azkaban" password="azkaban" roles="admin" groups="azkaban" />
+        <user username="metrics" password="metrics" roles="metrics"/>
+        <user username="xiaoming" password="123456" roles="admin,metrics"/>
+        <role name="admin" permissions="ADMIN" />
+        <role name="metrics" permissions="METRICS"/>
+		</azkaban-users>
+		
+		
+	6.启动测试：
+	   进入安装目录，输入启动服务命令：
+	   [root@master web]# bin/azkaban-web-start.sh
+	   启动成功之后打开浏览器进行测试：
+	   https://虚拟机IP地址:8443
+    7.配置executor服务器
+	  进入安装路径：
+	  [root@master azkaban]# cd executor/
+	  然后进入安装路径下面的conf来修改配置文件：azkaban.properties
+	  [root@master conf]# vi azkaban.properties
+	  修改时区：default.timezone.id=Asia/Shanghai
+      修改路径：executor.global.properties=/root/bigdata/azkaban/executor/conf/global.properties
+	  修改mysql配置：
+			database.type=mysql
+			mysql.port=3306
+			mysql.host=192.168.1.119
+			mysql.database=azkaban
+			mysql.user=root
+			mysql.password=123456
+			mysql.numconnections=100
+
+    8.启动测试：
+	  进入到安装目录下，执行以下命令来启动
+	  [root@master executor]# bin/azkaban-executor-start.sh
+
+
+	注意：如果在启动的过程中有问题，需要重新启动，必须要先jps看对应的进程在不在，如果在的话先要结束进程才能继续启动，否则提示端口号被占用，启动失败。
+	
+	azkaban使用:
+	projects:是azkaban的核心，主要就是用来显示当前创建的所有的项目，在azkaban中工作流都是以项目为单位进行管理。
+	scheduling:主要用来显示所有的定时任务
+	executing:主要用来显示所有正在执行的任务
+	history:用来显示所有已经执行完毕的任务
+	
+	
+使用azkaban的流程
+ 1.创建一个项目
+ 2.给项目添加工作流
+    先编写一个工作流的文件，通过键值对的形式来描述所需要执行的任务。
+	工作流的配置文件是以.job结尾的文件
+	job文件中常见的键有哪些：
+		type:设置需要执行的任务类型，一般使用的命令：command
+		command:设置需要执行的命令是什么
+		dependencies:用来设置当前任务的前置任务是什么（也就是依赖关系）
+		retries:设置任务失败之后重试的次数
+		retry-backoff:设置重试的时间间隔，单位：毫秒
+	将工作流的配置文件要打包成一个zip格式的压缩文件然后上传到azkaban
+	
+	在编写job的时候如果要给任务传参数，则使用参数的方式：${参数名}
+	
+	

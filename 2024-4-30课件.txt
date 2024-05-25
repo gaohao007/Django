@@ -1,0 +1,1076 @@
+数据仓库的建设流程：
+  数仓建模的过程分为业务建模、领域建模、逻辑建模和物理建模：
+  细化之后如下：
+    1.梳理业务流程
+	 ① 找到核心业务流程，找到谁，在什么环节，做什么关键动作，得到什么结果
+	 ②梳理每个业务节点的客户及关注重点，找到数据在哪（源数据）
+	2.垂直切分，划分主题域
+	 ①数仓的建设方式： 自下而上 和 自顶而下。自下而上,简单快捷，快速交活。要全面支撑，就顶层规划，分步实施，交活稍微慢点。
+	 ② 同时按照业务领域划分主题域。主题域的划分方法有：按业务流划分（推荐）、按需求分、按职责分、按产品功能分等
+	3.梳理指标体系
+	 ① 指标的意义在于统一语言，统一口径。所以指标的定义必须有严格的标准。否则如无根之水。
+	 ② 指标可分为原子指标、派生指标和衍生指标
+	 ③ 依照指标体系建设标准，开始梳理指标体系。整个体系同样要以业务为核心进行梳理。同时梳理每个业务过程所需的维度。维度就是你观察这个业务的角度，指标就是衡量这个业务结果 好坏的量化结果。
+	 ④ 请注意，此时不能被现有数据局限。如果分析出这个业务过程应该有这个指标，但是没有数据，请标注出来，提出收集数据的需求。
+	4.表实体关系调研
+	 ① 每个业务动作都会有数据产生。我们将能够获取到的数据，提取实体，绘制ER图，便于之后的维度建模。
+	 ② 同样以业务过程为起点向下梳理，此时的核心是业务表。把每张表中涉及的维度、指标都整理出来。
+	5.维度梳理
+	  维度标准化是将各个业务系统中相同的维度进行统一的过程。其字段名称、代码、名字都可能不一样，我们需要完全掌握，并标准化。
+	  维度的标准尽可能参照国家标准、行业标准。例如地区可以参照国家行政区域代码。另外，有些维度存在层级，如区域的省、市、县。绝大多数业务系统中的级联就是多层级维度。
+	6.数仓分层
+		每一层采用的建模方法都不一样，其核心是逐层解耦，减少重复计算，降低烟囱式开发。越到底层，越接近业务发生的记录，越到上层，越接近业务目标。
+
+		依托数仓分层的设计理论，根据实际业务场景，我们就可以梳理出整体的数据流向图。这张图会很清晰的告诉所有人，数据从那来，到哪里去，最终提供什么样的服务。
+	7.物理模型建立
+	  此时才真正进入纯代码阶段。数仓、ETL工具选型；ETL流程开发；cube的建立；任务调度，设定更新方式、更新频率；每日查看日志、监控etl执行情况等等。
+	  
+	8.ETL构建数据仓库的步骤：
+	   1.数据准备：
+	     是ETL实现数据仓库的第一步，主要就是将各个业务系统中数据抽取过来并且将他整合到一个统一的数据平台进行保存。
+		 1.数据抽取：根据数据仓库的需求，从各个数据源来获取所需要的数据，这一个过程确保数据的完整性和准确性。
+		 2.数据清洗：对于抽取的数据，要进行清洗和预处理，以去除一些冗余的，重复或者错误的数据，清洗的过程包括数据格式转换，数据类型转换空值处理等等。
+		 3.数据整合：将不同的数据源的数据整个到一个统一的数据存储环境中，以方便进行后续的数据转换和加载。
+	   2.数据转换：
+	    是ETL实现数据仓库的第二步，主要是对数据进行转换和整合，使得数据符合数据仓库模型的需求。
+		 1.数据格式转换：将不同数据源中的数据格式统一，方便后续的数据处理和分析。
+		 2.数据类型转换：对于不同数据源的数据类型需要进行一致性和标准化转换，以确保数据的正确性和可比较性。
+		 3.数据整合：将不同的数据源的数据进行合并，形成一个完整的企业视图，以满足需求。
+	   3.设计阶段：
+	      1.需求分析：深入了解业务需求，明确数据仓库中需要支持的分析主题和维度
+		  2.数据模型的设计：(元数据管理)
+		  3.ETL设计：主要就是根据数据模型，来规划出整个ETL策略和流程，包括数据的清洗，抽取，加载等等。
+	   4.实现阶段：
+	     将设计阶段的内容转换成具体的ETL脚本
+		 1.ETL开发：根据ETL设计进行ETL脚本的编写，包括抽取，清洗，转换和加载的程序和脚本并且要进行测试和调试。
+		 2.数据校验：在ETL脚本编写完成之后，一定要定期对数据进行校验，以确保数据的准确性以及ETL准确性。
+		 3.性能优化：根据实际的情况，定期对ETL过程进行性能的优化，以提高数据的处理速度和效率。
+	   5.交付部署上线
+	      主要将ETL过程部署到生产环境中，并且对其进行监控和维护。
+		  1.ETL部署：将开发好的ETL脚本或程序部署到生产环境中，使得他能够进行定期的执行。
+		  2.监控和维护：对ETL过程进行监控和维护，确定正常运行，同时及时处理的异常和错误的情况，确保数据仓库的可靠性。
+		  3.优化和改进：根据实际的应用情况，对ETL过程进行优化和改进。
+		  
+	
+数据仓库中的建模方式：
+  1.ER模型：主要是从实体和关系的角度来描述企业中的业务，不同于OLTP中的三范式，主要实际站在整个企业的角度面向主题进行模型构建。
+    ER模型建模单个阶段：
+     1.高层模型：一个高度抽象出来的模型，主要描述主题以及主题之间的关系。
+     2.中层模型：在高层模型的基础上让偶细化出每一个主题中的数据项
+     3.底层模型：物理模型，在中层模型的基础上，考虑物理存储，根据不同的数据存储平台的特点来设计物理属性，也可以做一些表合并，分区等等。
+	 
+  2.维度模型：
+     主要从分析决策的需求来构建模型。
+     维度建模的模型主要有两个：星型模型和雪花模型	 
+	 维度建模的步骤：
+	   1.选择业务过程：
+	   2.确定数据的粒度：
+	   3.识别维度：
+	   4.选择事实：
+	   
+电商数据仓库分层：
+   好处：1.清晰的数据结构：每一个层都是单独的作用域，在使用表的时候方便定位以及理解数据。
+         2.将复杂的问题简单化：
+		 3.减少重复开发，提高代码的重用性：
+		 4.屏蔽原始数据：
+		 5.方便数据血缘关系的追踪：
+		 
+	数据仓库分为：
+	  1.ODS:操作性数据层：对接原始系统的第一层数据，为后续数据仓库处理数据提供数据支持，
+	        该层数据一般不会做任何处理操作，直接加载原始数据即可
+	       数据来源：1.业务系统数据库：可以使用datax或者sqoop等ETL工具进行数据抽取，每天定时抽取一次。
+		             2.埋点日志数据：一般会采用flume来进行日志数据的抽取，也可以将日志数据保存到文件中，定时加载即可。
+					 3.其他的数据：第三方数据，网络爬虫数据等等
+	  2.DWD:明细数据层：该层是业务层和数据仓库的隔离层，是以业务过程为驱动进行建模，按照维度建模的方式来确定仓库中所需要的事实表和维度表。
+	        并且还会对数据进行一些标准化处理（格式统一，单位统一,码值转换等等），可以将表适当的宽表化处理。
+	  3.DWS:数据服务层，基于DWD层数据，按照要分析的主题对数据进行轻度汇总，主要是以分析的主题（理解为维度）为驱动来建模。
+	        一般是按照天进行汇总。
+	  4.DWT:数据主题层，主要是对DWS中的数据进行累计汇总。
+	  5.ADS:数据应用层，主要就是根据具体的业务需求来计算具体的数据指标。
+	  
+	制定规范：
+	  表名规范：
+	      ODS层命名为ods_表名
+		  DWD层命名为dwd_dim/fact_表名
+		  DWS层命名为dws_表名 
+		DWT层命名为dwt_表名
+		  ADS层命名为ads_表名
+		  临时表命名为xxx_tmp 
+		用户行为表，以log为后缀。
+	  字段命名规范：
+	  脚本命名规范：
+	        数据源_to_目标_db/log.sh
+			  用户行为脚本以log为后缀；业务数据脚本以db为后缀。
+	  
+	  字段数据类型的选择：
+	     数量类型为bigint
+		 金额类型为decimal(16, 2)，表示：16 位有效数字，其中小数部分 2 位
+		 字符串(名字，描述信息等)类型为string
+		 时间戳类型为bigint
+	  
+   模型创建：
+      1.ODS层模型：直接和源系统中的表模型保持一致。
+	    针对 HDFS 上的用户行为数据和业务数据，我们如何规划处理？
+		（1）保持数据原貌不做任何修改，起到备份数据的作用。
+		（2）数据采用压缩，减少磁盘存储空间（例如：原始数据 100G，可以压缩到 10G 左右）
+		（3）创建分区表，防止后续的全表扫描
+	  
+	  2.DWD层模型：
+            关系建模：严格遵循第三范式（3NF），从图中可以看出，较为松散、零碎，物理表数量多，而数据冗余程度低。
+					由于数据分布于众多的表中，这些数据可以更为灵活地被应用，功能性较强。关系模型主要应用与 OLTP 系统中，
+					为了保证数据的一致性以及避免冗余，所以大部分业务系统的表都是遵循第三范式的	 。     
+			维度建模：主要应用于 OLAP 系统中，通常以某一个事实表为中心进行表的组织，主要面向业务，特征是可能存在数据的冗余，
+					但是能方便的得到数据。关系模型虽然冗余少，但是在大规模数据，跨表分析统计查询过程中，会造成多表关联，
+					这会大大降低执行效率。所以通常我们采用维度模型建模，把相关各种表整理成两种：事实表和维度表两种。
+		
+		维度表：
+		   一般是对事实的描述信息。每一张维表对应现实世界中的一个对象或者概念。例如：用户、商品、日期、地区等。
+		   维表的特征：
+			1.维表的范围很宽（具有多个属性、列比较多）
+			2.跟事实表相比，行数相对较小：通常< 10 万条
+			  3.内容相对固定
+		事实表：
+		    事实表中的每行数据代表一个业务事件（下单、支付、退款、评价等）。“事实” 这个术语表示的是业务事件的度量值（可统计次数、个数、金额等）。
+			每一个事实表的行包括：具有可加性的数值型的度量值、与维表相连接的外键，通常 具有两个和两个以上的外键
+			事实表的特征：
+			1.非常的大
+			2.内容相对的窄：列数较少（主要是外键 id 和度量值）
+			3.经常发生变化，每天会新增加很多。
+			
+	    事实表分类：
+		 1.事务性事实表：以每个事务或事件为单位，例如一个销售订单记录，一笔支付记录等，作为事实表里 的一行数据
+				        一旦事务被提交，事实表数据被插入，数据就不再进行更改，其更新方式为增量更新。
+						
+		 2.周期快照型事实表：周期型快照事实表中不会保留所有数据，只保留固定时间间隔的数据，
+						例如每天或 者每月的销售额，或每月的账户余额等。例如购物车，有加减商品，随时都有可能变化，
+						但是我们更关心每天结束时这里面有 多少商品，方便我们后期统计分析
+						数据的加载方式：全量加载
+		   
+		 
+		 3.累计快照型事实表：累计快照事实表用于跟踪业务事实的变化。例如，数据仓库中可能需要累积或者存 储订单从下订单开始，
+							到订单商品被打包、运输、和签收的各个业务阶段的时间点数据来跟 踪订单声明周期的进展情况。
+							当这个业务过程进行时，事实表的记录也要不断更新。
+							
+	维度模型的选择：
+	     星型模型：如果性能优先则选择星型模型
+		 雪花模型：灵活性优先选择雪花模型
+		 建议：在实际的工作中，如果是数据仓库中一般建议使用星型模型。
+    
+	
+	DWD层需构建维度模型，是以业务为驱动建模
+	  一般采用星型模型，呈现的状态一般为星座模型。维度建模一般按照以下四个步骤：选择业务过程→声明粒度→确认维度→确认事实
+	1.选择业务过程：选择业务过程在业务系统中，挑选我们感兴趣的业务线，比如下单业务，支付业务，退款业务，物流业务，一条业务线对应一张事实表。
+					如果是中小公司，尽量把所有业务过程都选择。如果是大公司（1000 多张表），选择和需求相关的业务线。
+	2.选择粒度：数据粒度指数据仓库的数据中保存数据的细化程度或综合程度的级别。声明粒度意味着精确定义事实表中的一行数据表示什么，
+	            应该尽可能选择最小粒度，以此来应各种各样的需求
+	3.确定维度:维度的主要作用是描述业务是事实，主要表示的是“谁，何处，何时”等信息。确定维度的原则是：后续需求中是否要分析相关维度的指标。
+				例如，需要统计，什么时间下的订单多，哪个地区下的订单多，哪个用户下的订单多。需要确定的维度就包括：时间维度、地区维度、用户维度	
+    4.确认事实：改事实代表的是事实表中度量值，例如：金额   件数    个数    次数 
+
+
+    产出一个事实维度矩阵表：可以大致确定事实表有哪些，维度表有哪些，然后再结合ODS层的模型，来构建DWD层具体的物理模型（表结构）,
+    会产出一些mapping映射文档（元数据）;	
+	
+	
+	DWS层和DWT层：
+	   主要就是对数据按照主题进行划分来统计。这两层统称宽表层：
+	   1.需要建哪些宽表：以维度为基准。
+	     设备宽表    用户宽表    商品宽表      地区宽表      活动宽表
+	   2. 宽表里面的字段：是站在不同维度的角度去看事实表，重点关注事实表聚合后的度量值。
+	    例如：dws层：商品宽表   主要按照天进行汇总
+		      商品信息    
+			  下单次数
+			  下单件数
+			  下单金额
+			  支付次数
+			  支付件数
+			  支付金额
+			  退款次数
+			  退款金额
+			  退款件数
+			  收藏次数
+			  加购物车次数
+			  好评次数
+			  中评次数
+			  差评次数
+			  默认评价次数
+	   3.DWS 和 DWT 层的区别：DWS 层存放的所有主题对象当天的汇总行为，例如每个地区当天的下单次数，下单金额等，
+				DWT 层存放的是所有主题对象的累积行为，例如每个地区最近７天（１５天、３０天、６０天）的下单次数、下单金额等
+		  
+		  DWT层：商品主题表    累计一段时间的汇总
+		     商品信息    
+			  下单次数
+			  下单件数
+			  下单金额
+			  近30天下单次数
+			  近30天下单件数
+			  近30天下单金额
+			  支付次数
+			  支付件数
+			  支付金额
+			  近30天支付次数
+			  近30天支付件数
+			  近30天支付金额
+			  退款次数
+			  退款金额
+			  退款件数
+			  近30天退款次数
+			  近30天退款件数
+			  近30天退款金额
+			  收藏次数
+			  近30天收藏次数
+			  加购物车次数
+			  近30天加购物车次数
+			  好评次数
+			  中评次数
+			  差评次数
+			  默认评价次数
+			  近30天好评次数
+			  近30天中次数
+			  近30天差评次数
+			  近30天默认评价次数
+			  
+	ADS层：模型需要参考需求
+	
+
+
+业务系统模拟数据的生成：	
+1.生成业务数据
+   #创建一个数据库gmall来进行模拟生产环境
+	CREATE DATABASE gmall;
+	#授权操作
+	GRANT ALL  ON gmall.* TO root@'%' IDENTIFIED BY '123456';
+	#刷新权限
+	FLUSH PRIVILEGES;
+
+    再mysql中的gmall数据库中执行sql文件，生成的表的数量27
+	生成模拟数据：
+	【生成2020-06-14数据】
+	  修改datas/business下面的application.properties文件
+	  1.将连接mysql的信息修改为自己的
+	  2.修改业务日期为2020-06-14
+	  3.是否重置和是否重置用户都修改为1
+	  打开命令窗口，进入到business文件夹中运行gmall2020.jar文件
+	  
+	  D:\课件\2402\had oop课件\2024-5-5\datas\business>java -jar gmall2020.jar
+	
+	【生成2020-06-15数据】
+	 修改datas/business下面的application.properties文件
+     1.修改业务日期为2020-06-15
+     2.是否重置和是否重置用户都修改为0
+	 打开命令窗口，进入到business文件夹中运行gmall2020.jar文件
+2.生成日志数据
+  将日志数据生成到Linux系统中
+   在root下面创建了一个gmall文件夹，然后将datas下面的logs保存到该文件夹下面。
+   创建一个文件夹保存日志数据：gmall/logdatas
+   【生成2020-06-14日志数据】
+   修改logs文件下面的application.properties文件，将里面的业务日期修改为：2020-06-14
+   
+   修改logs文件下面的logback.xml文件
+   <property name="LOG_HOME" value="/root/gmall/logdatas" />
+   
+   修改Linux系统时间为：2020-06-14
+   [root@master logs]# date -s '2020-06-14'
+
+   运行logs/gmall2020.jar文件
+   [root@master logs]# java -jar gmall2020.jar
+
+   【生成2020-06-15日志数据】
+   修改logs文件下面的application.properties文件，将里面的业务日期修改为：2020-06-15
+   
+   修改Linux系统时间为：2020-06-15
+   [root@master logs]# date -s '2020-06-15'
+
+   运行logs/gmall2020.jar文件
+   [root@master logs]# java -jar gmall2020.jar
+
+		  
+ETL开发阶段:
+   数据仓库中表类型：
+   1.全量表：全量表一般是没有分区的表，每次全量表中添加数据都需要覆盖之前的数据，所以全量表中是不包含历史数据。
+   2.增量表：每次抽取数据的时候只抽取发生修改或者是新增的数据，并且抽取过来的数据会保存到一个新的分区中，所以增量表的分区一般是
+             按照抽取频率进行分区，分区中只保存发生修改或者是新增的数据。
+   3.快照表：因为全量表没有办法反应历史数据，这时候就可以通过快照表来进行保存数据，会按照抽取的频率创建分区，每个分区中都是保存的抽取当天的全量数据。
+             缺点：如果数据量比较大，则比较消耗空间，如果要节省空间则可以使用拉链表。
+   4.拉链表：可以解决快照表中数据冗余的问题提，并且还可以保存历史数据，如果即想保留历史数据，又想节省空间则建议使用拉链表。
+   5.切片表：往往反应的是一个维度的汇总数据，经常出现在集市层或者是分析主题层。
+
+  1.数据抽取：根据数据仓库的需求，从源系统中抽取所需要的数据。
+    数据来源：1.业务系统数据（mysql）
+	          2.日志数据（json）
+	抽取技术：1.mysql中的业务数据：sqoop+shell脚本
+	          2.使用load data local  +shell脚本
+			  
+	要抽取业务系统中表的数量：24张
+	ETL策略：
+	  1.activity_info：活动信息表
+	    抽取策略：全量抽取
+	  2.activity_order：活动订单表
+	    抽取策略：增量抽取  
+	  3.activity_rule：活动规则表
+	    抽取策略：全量抽取
+	  4.activity_sku：活动商品表
+	    抽取策略：全量抽取
+	  5.base_category1：商品一级分类
+	    抽取策略：全量抽取
+	  6.base_category2：商品二级分类
+	    抽取策略：全量抽取
+	  7.base_category3：商品三级分类
+	    抽取策略：全量抽取
+	  8.base_dic：编码表
+	    抽取策略：全量抽取
+	  9.base_province：省份表
+	    抽取策略：全量抽取      抽取频率：第一次抽取
+	  10.base_region：地区表
+	     抽取策略：全量抽取      抽取频率：第一次抽取
+	  11.base_trademark:品牌表
+         抽取策略：全量抽取
+      12.cart_info：购物车表
+         抽取策略：全量抽取
+      13.comment_info：评论表
+         抽取策略：增量抽取
+      14.coupon_info：优惠券信息表
+         抽取策略：全量抽取
+      15.coupon_use：优惠券领用表
+         抽取策略：增量抽取
+      16.favor_info：收藏表
+         抽取策略：全量抽取
+      17.order_detail:订单详细表
+         抽取策略：增量抽取
+      18.order_info：订单信息表
+  	     抽取策略：增量抽取
+	  19.order_refund_info：订单退款表
+	     抽取策略：增量抽取
+	  20.order_status_log：订单状态表
+	     抽取策略：增量抽取
+	  21：payment_info：支付信息表
+	     抽取策略：增量抽取
+	  22：sku_info：商品详细信息表
+	     抽取策略：全量抽取
+	  23：spu_info：商品概要信息表
+	     抽取策略：全量抽取
+	  24.user_info;用户信息表
+         抽取策略：增量抽取	  
+	  
+    编写ETL脚本进行业务数据的抽取工作：
+	 
+	 import_data(){
+	 sqoop import \
+	 --connect jdbc:mysql://192.168.1.119:3306/gmall \
+	 --username root \
+	 --password 123456 \
+	 --target-dir /origin_data/gmall/db/$1/2020-06-14 \
+	 --delete-target-dir \
+	 --query "$2  and \$CONDITIONS" \
+	 --num-mappers 1 \
+	 --fields-terminated-by '\t'
+	 --compress \
+	 --compression-codec lzop \
+	 --null-string '\\N' \
+	 --null-non-string '\\N' 
+	 
+	 --为了支持lzo压缩切片，需要创建lzo索引
+	 
+	 }
+	 
+	 全量抽取：
+	 import_data activity_info "select * from activity_info where 1=1"
+	 增量抽取：
+	 import_data order_info "SELECT * FROM order_info WHERE DATE_FORMAT(create_time,'%Y-%m-%d')='2020-06-14'"
+	 
+	 将数据抽取的过程封装到shell脚本中统一执行抽取操作：
+	 【抽取2020-06-14数据】：首次导入数据使用first参数
+	 [root@master shells]# bash 01-mysql_to_hdfs.sh first 2020-06-14
+	 【抽取2020-06-15数据】：以后每天抽取：all
+	 [root@master shells]# bash 01-mysql_to_hdfs.sh all 2020-06-15
+构建数据仓库(创建各层中表结构并且实现各层数据的ETL操作)
+1.在hive数据库中创建一个数据库，用来保存所有的表结构
+   --创建一个数据库
+	create database gmall;
+	--切换数据库
+	use gmall;
+2.【构建ODS层】
+   确定ODS层的模型有哪些，然后根据模型创建对应的表
+   业务数据：
+   ODS层模型的物理结构和源系统中的表的物理结构保持一致。
+   表结构如下：
+      1.ods_activity_info：活动信息表
+	    表类型：快照表
+	  2.ods_activity_order：活动订单表
+	    表类型：增量表
+	  3.ods_activity_rule：活动规则表
+	    表类型：快照表
+	  4.ods_activity_sku：活动商品表
+	    表类型：快照表
+	  5.ods_base_category1：商品一级分类
+	    表类型：快照表
+	  6.ods_base_category2：商品二级分类
+	   表类型：快照表
+	  7.ods_base_category3：商品三级分类
+	    表类型：快照表
+	  8.ods_base_dic：编码表
+	    表类型：快照表
+	  9.ods_base_province：省份表
+	    表类型：全量表      抽取频率：第一次抽取
+	  10.ods_base_region：地区表
+	    表类型：全量表      抽取频率：第一次抽取
+	  11.ods_base_trademark:品牌表
+         表类型：快照表
+      12.ods_cart_info：购物车表
+         表类型：快照表
+      13.ods_comment_info：评论表
+         表类型：增量表
+      14.ods_coupon_info：优惠券信息表
+         表类型：快照表
+      15.ods_coupon_use：优惠券领用表
+         表类型：增量表
+      16.ods_favor_info：收藏表
+        表类型：快照表
+      17.ods_order_detail:订单详细表
+         表类型：增量表
+      18.ods_order_info：订单信息表
+  	     表类型：增量表
+	  19.ods_order_refund_info：订单退款表
+	     表类型：增量表
+	  20.ods_order_status_log：订单状态表
+	     表类型：增量表
+	  21：ods_payment_info：支付信息表
+	     表类型：增量表
+	  22：ods_sku_info：商品详细信息表
+	     表类型：快照表
+	  23：ods_spu_info：商品概要信息表
+	     表类型：快照表
+	  24.ods_user_info;用户信息表
+         表类型：增量表	  
+	创建好表之后要加载数据：hivesql+shell脚本
+	例如：加载ods_activity_info表数据:
+	load data inpath '/origin_data/gmall/db/activity_info/2020-06-14' into table ods_activity_info partition(dt='2020-06-14');
+	为了方便后续的ETL调度，将加载数据的过程封装到shell脚本中统一调度
+	【加载2020-06-14数据】：初次导入
+	[root@master shells]# bash 05-hdfs_to_ods_db.sh first 2020-06-14
+    【加载2020-06-15数据】：每日导入
+	[root@master shells]# bash 05-hdfs_to_ods_db.sh all 2020-06-15
+	日志数据：
+	由于日志数据是一些json数据，所以在ODS层是不需要进行任何处理，直接将每一行json字符串当作是一个行存储，日志数据量比较大，所以在设计的时候
+	使用增量表来保存，并且需要进行分区。
+	--创建日志表
+	create external table ods_log(
+	 line string
+	)partitioned by (dt string)
+	location '/warehouse/gmall/ods/ods_log'
+	--加载数据
+	load data local inpath '/root/gmall/logdatas/app.2020-06-14.log' overwrite into table ods_log partition(dt='2020-06-14')
+	--封装脚本
+	#!/bin/bash
+	# 如果是输入的日期按照取输入日期；如果没输入日期取当前时间的前一天
+	if [ -n "$1" ] ;then
+		do_date=$1
+	else 
+		do_date=`date -d "-1 day" +%F`
+	fi
+	
+	sql="load data local inpath '/root/gmall/logdatas/app.${do_date}.log' overwrite into table ods_log partition(dt='${do_date}')";
+	
+	hive -e "${sql}"
+	
+	【加载2020-06-14日志】
+	[root@master shells]# bash 03-load_to_ods_log.sh 2020-06-14
+    【加载2020-06-15日志】
+	[root@master shells]# bash 03-load_to_ods_log.sh 2020-06-15
+	
+3.【构建DWD层】：
+    确定DWD层的模型有哪些，并且进行表的创建以及数据的处理和加载
+    主要工作：
+       1.对ODS层的数据进行清洗处理。
+       2.对ODS层数据进行重新建模---------------建模方式：维度建模
+         步骤：1.选择业务过程：
+		         下单   支付     加购物车      收藏      评价     退款     优惠券领用
+		 
+               2.确定粒度：
+			   下单（订单|订单详细）   支付     加购物车      收藏      评价     退款     优惠券领用
+			   
+               3.确定维度：
+			    设备   用户   商品   地区    活动   优惠券    时间维度   编码维度
+			   
+               4.确认事实：
+        业务数据表：
+         	8张事实表：
+				1.订单事实表：（累计快照型事实表）
+				2.订单详细事实表：（事务型事实表）
+				3.加购物车事实表：（周期快照型事实表）
+				4.收藏事实表：（周期快照型事实表）
+				5.评价事实表：（事务型事实表）
+				6.退款事实表：（事务型事实表）
+				7.支付事实表：（事务型事实表）
+				8.优惠券领用事实表：（累计快照型事实表）	
+        周期快照型事实表和事务型事实表加载数据的时候直接只用静态分区加载即可。
+        累计快照型事实表需要更新之前分区中的数据则不能使用静态分区加载数据，需要使用动态分区。
+        累计快照型事实表数据的加载方式：
+          先增量抽取数据，然后和原来的事实表中的数据（一般会将设计到新增或者是修改的数据过滤出来）进行全连接，
+           如果抽取过来的新数据有数据，则使用新数据，否则就只用老数据。
+		   例如：优惠券领用事实表：
+		   insert overwrite table dwd_fact_coupon_use partition(dt)
+			select 
+			nvl(new.id,old.id),
+			nvl(new.coupon_id,old.coupon_id),
+			nvl(new.user_id,old.user_id),
+			nvl(new.order_id,old.order_id),
+			nvl(new.coupon_status,old.coupon_status),
+			nvl(new.get_time,old.get_time),
+			nvl(new.using_time,old.using_time),
+			nvl(new.used_time,old.used_time),
+			date_format(nvl(new.get_time,old.get_time),'YYYY-MM-dd')
+			from(
+			select * from ods_coupon_use where dt='2020-06-15') new
+			full join
+			(select * from dwd_fact_coupon_use where dt in
+			(select date_format(get_time,'YYYY-MM-dd') from ods_coupon_use where dt='2020-06-15')) old
+			 on new.id=old.id;
+
+			订单事实表：
+             with s_tmp as(
+				select order_id ,str_to_map(concat_ws('=',collect_list(order_status||','||operate_time)),'=',',') status
+				from ods_order_status_log where dt='2020-06-14'  group by order_id 
+				)
+				insert overwrite table dwd_fact_order_info partition(dt)
+				select 
+				nvl(new.id,old.id),
+				nvl(new.order_status,old.order_status),
+				nvl(new.user_id,old.user_id),
+				nvl(new.out_trade_no,old.out_trade_no),
+				nvl(new.create_time,old.create_time),
+				nvl(new.payment_time,old.payment_time),
+				nvl(new.cancel_time,old.cancel_time),
+				nvl(new.finish_time,old.finish_time),
+				nvl(new.refund_time,old.refund_time),
+				nvl(new.refund_finish_time,old.refund_finish_time),
+				nvl(new.province_id,old.province_id),
+				nvl(new.activity_id,old.activity_id),
+				nvl(new.original_total_amount,old.original_total_amount),
+				nvl(new.benefit_reduce_amount,old.benefit_reduce_amount),
+				nvl(new.feight_fee,old.feight_fee),
+				nvl(new.final_total_amount,old.final_total_amount),
+				DATE_FORMAT(nvl(new.create_time,old.create_time),'YYYY-MM-dd') 
+				from(
+				select 
+				o.id,
+				o.order_status,
+				o.user_id,
+				o.out_trade_no,
+				status['1001'] create_time,
+				status['1002'] payment_time,
+				status['1003'] cancel_time,
+				status['1004'] finish_time,
+				status['1005'] refund_time,
+				status['1006'] refund_finish_time,
+				o.province_id,
+				a.activity_id,
+				o.original_total_amount,
+				o.benefit_reduce_amount,
+				o.feight_fee,
+				o.final_total_amount
+				from(
+				select * from ods_order_info where dt='2020-06-14') o
+				left join(
+				select * from ods_activity_order where dt='2020-06-14') a 
+				on o.id=a.order_id
+				left JOIN s_tmp on s_tmp.order_id=o.id) new
+				full join (
+				select * from dwd_fact_order_info where dt in(
+				select date_format(create_time,'YYYY-MM-dd') from ods_order_info where dt='2020-06-14'
+				)) old on new.id=old.id;
+	    订单详细事实表
+		  with d_tmp as(
+			select * from ods_order_detail where dt='2020-06-14')
+			,o_tmp AS (
+			select * from ods_order_info where dt='2020-06-14')
+			insert overwrite table dwd_fact_order_detail partition(dt='2020-06-14')
+			select 
+			id,
+			order_id,
+			user_id,
+			sku_id,
+			sku_name,
+			order_price,
+			sku_num,
+			create_time,
+			province_id,
+			source_type,
+			source_id,
+			original_amount,
+			if(rn=1,final_total_amount-(a1-final_amount),final_amount),
+			if(rn=1,feight_fee-(a2-feight_fee_amount),feight_fee_amount),
+			if(rn=1,benefit_reduce_amount-(a3-benefit_amount),benefit_amount)
+			from(
+			select 
+			d.id,
+			d.order_id,
+			d.user_id,
+			d.sku_id,
+			d.sku_name,
+			d.order_price,
+			d.sku_num,
+			d.create_time,
+			o.province_id,
+			d.source_type,
+			d.source_id,
+			d.order_price*d.sku_num original_amount,
+			round(d.order_price*d.sku_num/original_total_amount*final_total_amount,2) final_amount,
+			round(d.order_price*d.sku_num/original_total_amount*feight_fee,2) feight_fee_amount,
+			round(d.order_price*d.sku_num/original_total_amount*benefit_reduce_amount,2) benefit_amount,
+			row_number()over(partition by d.order_id order by d.order_price*d.sku_num desc) rn,
+			sum(round(d.order_price*d.sku_num/original_total_amount*final_total_amount,2))over(partition by d.order_id) a1,
+			sum(round(d.order_price*d.sku_num/original_total_amount*feight_fee,2))over(partition by d.order_id) a2,
+			sum(round(d.order_price*d.sku_num/original_total_amount*benefit_reduce_amount,2))over(partition by d.order_id) a3,
+			final_total_amount,
+			feight_fee,
+			benefit_reduce_amount
+			from d_tmp d join o_tmp o on d.order_id=o.id) s;
+
+	        
+			
+			
+			7张维度表：
+			   1.用户维度表：（拉链表）
+			   2.商品维度表：（快照表）
+			   3.地区维度表：（全量表）
+			   4.时间维度表：（全量表）
+			   5.优惠券维度表：（快照表）
+			   6.活动维度表:（快照表）
+			   7.编码维度表：（快照表）
+		将加载数据的一些hql封装到shell脚本中进行统一调度运行：
+        【加载2020-06-14业务数据】
+         [root@master shells]# bash 09-ODS-business-DWD.sh first 2020-06-14
+		【加载2020-06-15业务数据】
+         [root@master shells]# bash 09-ODS-business-DWD.sh all 2020-06-15
+   
+		日志数据的表：
+		   1.启动日志表：主要就是解析json数据中的common和start   
+		   2.页面日志表：主要解析的是json数据中的common和page
+		   3.曝光日志表：主要解析的是json数据中的common和displays
+		   4.动作日志表：主要解析的是json数据中的common和actions
+		   5.错误日志表：主要解析的是json数据中的common和err
+		   
+		   with tmp as(
+			select split(
+			REGEXP_REPLACE(REGEXP_REPLACE(GET_JSON_OBJECT(line,'$.displays') ,'\\[|\\]',''),'},','}='),'=') s from ods_log)
+			select GET_JSON_OBJECT(str,'$.display_type')
+			from tmp lateral view explode(s) v as str;
+		将加载数据的一些hql封装到shell脚本中进行统一调度运行：
+		【加载2020-06-14日志数据】	
+		  [root@master shells]# bash 07-ODS_TO_DWD_LOG.sh 2020-06-14
+	    【加载2020-06-15日志数据】	
+		  [root@master shells]# bash 07-ODS_TO_DWD_LOG.sh 2020-06-15
+【构建DWS层】
+ 数据服务层：也叫做轻度汇总层，主要就是将DWD中的数据按照分析主题进行数据切片汇总。
+ 轻度汇总一般按照天汇总。
+ 主题划分的标准：主要就是结合需求以及对应的维度来划分主题，著如果主题比较庞大，则还可以划分很多子主题。
+ 每日汇总主题表：
+   1.每日设备表：
+   2.每日会员表：
+   --登录次数
+	with start_tmp as(
+	select user_id ,count(*) login_count from dwd_start_log where dt='2020-06-14' group by user_id),
+	--加入购物车的次数
+	cart_tmp as(
+	select user_id ,count(*) cart_count from dwd_action_log where action_id ='cart_add' group by user_id),
+	--下单次数和金额
+	order_tmp as(
+	select user_id ,count(*) order_count,sum(final_total_amount) order_amount from dwd_fact_order_info where dt='2020-06-14' group by user_id),
+	--支付次数和金额
+	payment_tmp as(
+	select user_id ,count(*)payment_count,sum(payment_amount)payment_amount from dwd_fact_payment_info where dt='2020-06-14' GROUP by user_id ),
+	--订单明细
+	detail_tmp as(
+	select user_id ,collect_list(named_struct('sku_id',sku_id,'sku_num',s1,'order_count',c1,'order_amount',CAST (f1 as decimal(20,2)))) ds from(
+	select  user_id ,sku_id ,sum(sku_num) s1,count(*) c1,sum(final_amount_d)f1 
+	from dwd_fact_order_detail where dt='2020-06-14' group by user_id ,sku_id) a  group by user_id )
+	insert overwrite table dws_user_action_daycount partition(dt='2020-06-14')
+	select 
+	s.user_id,
+	nvl(login_count,0),
+	nvl(cart_count,0),
+	nvl(order_count,0),
+	nvl(order_amount,0),
+	nvl(payment_count,0),
+	nvl(payment_amount,0),
+	ds
+	from start_tmp s
+	left join
+	cart_tmp c on s.user_id=c.user_id
+	left join order_tmp o on s.user_id=o.user_id
+	left join payment_tmp p on s.user_id=p.user_id
+	left join detail_tmp d on s.user_id=d.user_id;
+   
+   3.每日商品表：
+   --统计每一个商品被下单的次数，件数，金额
+with order_tmp as(
+select 
+sku_id , 
+count(*) order_count,
+sum(sku_num) order_num,
+sum(final_amount_d) order_amount,
+0 payment_count,
+0 payment_num,
+0 payment_amount,
+0 refund_count,
+0 refund_num,
+0 refund_amount,
+0 cart_count,
+0 fav_count,
+0 good_count,
+0 mid_count,
+0 bad_count,
+0 default_count
+from dwd_fact_order_detail where dt='2020-06-14' group by sku_id),
+
+--统计支付的次数，件数，金额
+payment_tmp as(
+select sku_id,
+	   0,
+	   0,
+	   0,
+       count(*) payment_count,
+	   sum(sku_num) payment_num,
+	   sum(final_amount_d) payment_amount,
+	   0,
+	   0,
+	   0,
+	   0,
+	   0,
+	   0,
+	   0,
+	   0,
+	   0
+from (
+select * from dwd_fact_payment_info where dt='2020-06-14' )a 
+join (
+select * from dwd_fact_order_detail where dt='2020-06-14')b on a.order_id=b.order_id
+group by sku_id),
+
+--被退款的次数，件数，金额
+refund_tmp as(
+select sku_id ,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     count(*) refund_count,
+     sum(refund_num) refund_num,
+     sum(refund_amount) refund_amount,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+from dwd_fact_order_refund_info where dt='2020-06-14' group by sku_id),
+
+--被加入购物车的次数
+cart_tmp as(
+select item,
+0,
+0,
+0,
+0,
+0,
+0,
+0,
+0,
+0,
+count(*) cart_count,
+0,
+0,
+0,
+0,
+0
+from dwd_action_log where dt='2020-06-14' and action_id ='cart_add'
+group by item),
+
+--被加入收藏的次数
+fav_tmp as(
+select item ,
+0,
+0,
+0,
+0,
+0,
+0,
+0,
+0,
+0,
+0,
+count(*) cart_count,
+0,
+0,
+0,
+0
+from dwd_action_log where dt='2020-06-14' and action_id ='favor_add'
+group by item),
+--好评，中评，差评，默认评价次数
+app_tmp as(
+select 
+sku_id ,
+0,
+0,
+0,
+0,
+0,
+0,
+0,
+0,
+0,
+0,
+0,
+sum(IF(appraise='1201',1,0)) good_count,
+sum(IF(appraise='1202',1,0)) mid_count,
+sum(IF(appraise='1203',1,0)) bad_count,
+sum(IF(appraise='1204',1,0)) default_count
+from dwd_fact_comment_info where dt='2020-06-14' GROUP by sku_id)
+insert overwrite table dws_sku_action_daycount partition(dt='2020-06-14')
+select sku_id,
+sum(order_count),
+sum(order_num),
+sum(order_amount),
+sum(payment_count),
+sum(payment_num),
+sum(payment_amount),
+sum(refund_count),
+sum(refund_num),
+sum(refund_amount),
+sum(cart_count),
+sum(fav_count),
+sum(good_count),
+sum(mid_count),
+sum(bad_count),
+sum(default_count)
+from(
+select * from order_tmp
+union all
+select * from payment_tmp
+union all
+select * from refund_tmp
+union all
+select * from cart_tmp
+union all
+select * from fav_tmp
+union all
+select * from app_tmp) a group by sku_id
+   
+   
+   4.每日活动表：
+   5.每日地区表：
+   
+   
+【构建DWT层】：
+  数据主题层：主要是将数据按照主题进行累计汇总，一般：所有的累计值   近30（7，15,....）
+  该层的表叫做主题宽表
+  主题和DWS层一样：
+    1.设备主题宽表：
+	select 
+	nvl(new.mid_id,old.mid_id),
+	nvl(new.brand,old.brand),
+	nvl(new.model,old.model),
+	if(old.mid_id is not null,old.login_date_first,'2020-06-14'),
+	if(new.mid_id is not null,'2020-06-14',old.login_date_last),
+	if(new.login_count is not null,new.login_count,0),
+	nvl(old.login_count,0)+if(new.login_count is not null,1,0)
+	from(
+	select *  from dws_uv_detail_daycount where dt='2020-06-14') new 
+	full join dwt_uv_topic old
+	on new.mid_id=old.mid_id and new.brand=old.brand and new.model=old.model;	
+	2.用户主题宽表：
+	3.商品主题宽表：
+	INSERT overwrite table dwt_sku_topic 
+select 
+nvl(old.sku_id,new.sku_id),
+spu.spu_id,
+nvl(new.order_count_30,0),
+nvl(new.order_num_30,0),
+nvl(new.order_amount_30,0),
+nvl(new.order_count,0)+nvl(old.order_count,0),
+nvl(new.order_num,0)+nvl(old.order_num,0),
+nvl(new.order_amount,0)+nvl(old.order_amount,0),
+nvl(new.payment_count_30,0),
+nvl(new.payment_num_30,0),
+nvl(new.payment_amount_30,0),
+nvl(new.payment_count,0)+nvl(old.payment_count,0),
+nvl(new.payment_num,0)+nvl(old.payment_num,0),
+nvl(new.payment_amount,0)+nvl(old.payment_amount,0),
+nvl(new.refund_count_30,0),
+nvl(new.refund_num_30,0),
+nvl(new.refund_amount_30,0),
+nvl(new.refund_count,0)+nvl(old.refund_count,0),
+nvl(new.refund_num,0)+nvl(old.refund_num,0),
+nvl(new.refund_amount,0)+nvl(old.refund_amount,0),
+nvl(new.cart_count_30,0),
+nvl(new.cart_count,0)+nvl(old.cart_count,0),
+nvl(new.favor_count_30,0),
+nvl(new.favor_count,0)+nvl(old.favor_count,0),
+nvl(new.appraise_good_count_30,0),
+nvl(new.appraise_mid_count_30,0),
+nvl(new.appraise_bad_count_30,0),
+nvl(new.appraise_default_count_30,0),
+nvl(new.appraise_good_count,0)+nvl(old.appraise_good_count,0),
+nvl(new.appraise_mid_count,0)+nvl(old.appraise_mid_count,0),
+nvl(new.appraise_bad_count,0)+nvl(old.appraise_bad_count,0),
+nvl(new.appraise_default_count,0)+nvl(old.appraise_default_count,0)
+from(
+select  
+sku_id ,
+sum(order_count) order_count_30 ,
+sum(order_num) order_num_30,
+sum(order_amount) order_amount_30,
+sum(if(dt='2020-06-14',order_count,0)) order_count,
+sum(if(dt='2020-06-14',order_num,0)) order_num,
+sum(if(dt='2020-06-14',order_amount,0)) order_amount,
+sum(payment_count) payment_count_30,
+sum(payment_num) payment_num_30,
+sum(payment_amount) payment_amount_30,
+sum(if(dt='2020-06-14',payment_count,0)) payment_count,
+sum(if(dt='2020-06-14',payment_num,0)) payment_num,
+sum(if(dt='2020-06-14',payment_amount,0)) payment_amount,
+sum(refund_count) refund_count_30 ,
+sum(refund_num) refund_num_30,
+sum(refund_amount) refund_amount_30,
+sum(if(dt='2020-06-14',refund_count ,0)) refund_count,
+sum(if(dt='2020-06-14',refund_num ,0)) refund_num,
+sum(if(dt='2020-06-14',refund_amount ,0)) refund_amount,
+sum(cart_count) cart_count_30,
+sum(if(dt='2020-06-14',cart_count,0)) cart_count,
+sum(favor_count) favor_count_30,
+sum(if(dt='2020-06-14',favor_count ,0)) favor_count,
+sum(appraise_good_count) appraise_good_count_30,
+sum(appraise_mid_count) appraise_mid_count_30,
+sum(appraise_bad_count) appraise_bad_count_30,
+sum(appraise_default_count) appraise_default_count_30,
+sum(if(dt='2020-06-14',appraise_good_count  ,0)) appraise_good_count,
+sum(if(dt='2020-06-14',appraise_mid_count  ,0)) appraise_mid_count,
+sum(if(dt='2020-06-14',appraise_bad_count  ,0)) appraise_bad_count,
+sum(if(dt='2020-06-14',appraise_default_count  ,0))appraise_default_count
+from dws_sku_action_daycount a where dt between DATE_ADD('2020-06-14',-30) and '2020-06-14'
+GROUP by sku_id) NEW 
+full join dwt_sku_topic old
+on new.sku_id=old.sku_id
+join (select * from dwd_dim_sku_info where dt='2020-06-14') spu
+on new.sku_id=spu.id;
+	4.活动主题宽表：
+	5.地区主题宽表：
+	
+	
+【构建ADS层】
+   主要就是根据客户的需求来计算具体的指标，表结构也是按照需求指标来进行确定。
+   各主题的需求：
+   【1】设备主题
+-------------------------------------------------------------------------------------
+
+.1 活跃设备数（日、周、月）	
+with day_tmp as(
+select '2020-06-14' dt, 
+count(*) day_count,
+if('2020-06-14'=DATE_ADD(floor_week(CAST('2020-06-14' as timestamp)),6),'Y','N') is_week,
+if('2020-06-14'=last_day('2020-06-14'),'Y','N')is_month
+ from(
+select mid_id,brand,model from dwt_uv_topic where login_date_last='2020-06-14'
+group by mid_id,brand,model) day),
+--当周活跃用户
+ week_tmp AS (
+select '2020-06-14' dt,count(*) week_count from(
+select mid_id,brand,model from dwt_uv_topic where login_date_last>=floor_week(CAST('2020-06-14' as timestamp)) 
+and login_date_last<DATE_ADD(floor_week(CAST('2020-06-14' as timestamp)),7)
+group by mid_id,brand,model) week),
+
+--当月活跃用户
+ month_tmp AS (
+select '2020-06-14' dt,count(*) month_count from(
+select mid_id,brand,model from dwt_uv_topic where login_date_last>=floor_month(CAST('2020-06-14' as timestamp)) 
+and login_date_last<=last_day('2020-06-14')
+group by mid_id,brand,model) month)
+select 
+d.dt,
+d.day_count,
+w.week_count,
+m.month_count,
+is_week,
+is_month
+from day_tmp d
+join week_tmp w on d.dt=w.dt
+join month_tmp m on d.dt=m.dt;
+
+
+.2 每日新增设备	
+--2 每日新增设备
+select  '2020-06-14' dt, count(*) from(
+select
+mid_id,brand,model
+from dwt_uv_topic where login_date_first='2020-06-14' group by mid_id,brand,model) a ;
+.3 留存率
+--一日留存
+select '2020-06-15',
+       DATE_ADD('2020-06-15',-1) ,
+       1,
+       sum(if(login_date_first=DATE_ADD('2020-06-15',-1) and login_date_last='2020-06-15',1,0)),
+       sum(if(login_date_first=DATE_ADD('2020-06-15',-1),1,0)),
+       sum(if(login_date_first=DATE_ADD('2020-06-15',-1) and login_date_last='2020-06-15',1,0))/sum(if(login_date_first=DATE_ADD('2020-06-15',-1),1,0))
+from (select mid_id,brand,model,login_date_first,login_date_last from dwt_uv_topic group by mid_id,brand,model,login_date_first,login_date_last)a
+--2日留存
+union all
+select '2020-06-15',
+        DATE_ADD('2020-06-15',-2) ,
+       2,
+       sum(if(login_date_first=DATE_ADD('2020-06-15',-2) and login_date_last='2020-06-15',1,0)),
+       sum(if(login_date_first=DATE_ADD('2020-06-15',-2),1,0)),
+       sum(if(login_date_first=DATE_ADD('2020-06-15',-2) and login_date_last='2020-06-15',1,0))/sum(if(login_date_first=DATE_ADD('2020-06-15',-2),1,0))
+from (select mid_id,brand,model,login_date_first,login_date_last from dwt_uv_topic group by mid_id,brand,model,login_date_first,login_date_last)a
+--3日留存
+union all
+select '2020-06-15',
+       DATE_ADD('2020-06-15',-3) ,
+       3,
+       sum(if(login_date_first=DATE_ADD('2020-06-15',-3) and login_date_last='2020-06-15',1,0)),
+       sum(if(login_date_first=DATE_ADD('2020-06-15',-3),1,0)),
+       sum(if(login_date_first=DATE_ADD('2020-06-15',-3) and login_date_last='2020-06-15',1,0))/sum(if(login_date_first=DATE_ADD('2020-06-15',-3),1,0))
+from (select mid_id,brand,model,login_date_first,login_date_last from dwt_uv_topic group by mid_id,brand,model,login_date_first,login_date_last)a  ;
+
+	
+.4 沉默用户数
+
+	
+.5 本周回流用户数	
+.6 流失用户数	
+.7 最近连续三周活跃用户数	
+.8 最近七天内连续三天活跃用户数	
+
+-------------------------------------------------------------------------------------
+【2】会员主题
+-------------------------------------------------------------------------------------
+
+.1 会员信息	
+.2 漏斗分析	
+
+-------------------------------------------------------------------------------------
+【3】商品主题
+-------------------------------------------------------------------------------------
+
+.1 商品个数信息	
+.2 商品销量排名	
+.3 商品收藏排名	
+.4 商品加入购物车排名	
+.5 商品退款率排名（最近30天）	
+.6 商品差评率	
+
+-------------------------------------------------------------------------------------
+【4】营销主题（用户+商品+购买行为）
+-------------------------------------------------------------------------------------
+ 	
+.1 下单数目统计	
+.2 支付信息统计	
+.3 品牌复购率	
+
+-------------------------------------------------------------------------------------
+【5】地区主题
+-------------------------------------------------------------------------------------
+	
+.1 地区主题信息	

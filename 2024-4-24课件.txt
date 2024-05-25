@@ -1,0 +1,566 @@
+【sqoop中增量导入数据】
+--增量常用的命令：
+  --incremental:设置数据增量的方式
+    append:主要是普通的增量，主要处理的是只有新增的数据，没有修改，建议增量的参考列是主键
+	lastmodified:主要是用来处理有新增和修改的数据，建议增量参考列是日期类型
+  --check-column:设置增量的参考列
+  --last-value:用来设置上一次增量之后的参考列的最后值
+  --append:设置文件的追加方式：每导入一次数据会产生一个数据文件
+  --merge-key:进行数据的合并，不管导入多少次数据，只会产生一个数据文件，并且每次都会将数据和前面的数据进行更新合并。
+  
+  
+  注意：增量是在前一次导入的数据的基础上再进行追加数据，所以允许目标文件夹存在的，也就是说不能使用detele-target-dir命令。
+  
+
+--增量导入数据：增量的方式：append    文件追加的方式：--append
+  sqoop import \
+  --connect jdbc:oracle:thin:@192.168.1.119:1521:orcl \
+  --username scott \
+  --password 123456 \
+  --table USER_T \
+  --target-dir /sqoop/user_t \
+  --num-mappers 1 \
+  --fields-terminated-by ',' \
+  --incremental append \
+  --check-column ID \
+  --last-value 7 \
+  --append 
+  
+
+--增量导入数据：增量的方式：lastmodified     文件追加的方式：--append
+    sqoop import \
+  --connect jdbc:oracle:thin:@192.168.1.119:1521:orcl \
+  --username scott \
+  --password 123456 \
+  --table USER_T \
+  --target-dir /sqoop/user_t1 \
+  --num-mappers 1 \
+  --fields-terminated-by ',' \
+  --incremental lastmodified \
+  --check-column LAST_DATE \
+  --last-value '2024-04-24 09:59:02.0' \
+  --append 
+  
+  
+  --增量导入数据：增量的方式：lastmodified     文件追加的方式：--merge-key
+    sqoop import \
+  --connect jdbc:oracle:thin:@192.168.1.119:1521:orcl \
+  --username scott \
+  --password 123456 \
+  --table USER_T \
+  --target-dir /sqoop/user_t2 \
+  --num-mappers 1 \
+  --fields-terminated-by ',' \
+  --incremental lastmodified \
+  --check-column LAST_DATE \
+  --last-value '2024-04-24 10:04:07.0' \
+  --merge-key ID
+  
+  注意：再实际工作中，使用sqoop自带的增量导入数据的方式一般很少用，一般都是通过sql语句然后借助于where条件指定具体要抽取的日期来进行数据导入。
+  
+  
+  --增量导入数据的方式：--query
+  sqoop import \
+  --connect jdbc:oracle:thin:@192.168.1.119:1521:orcl \
+  --username scott \
+  --password 123456 \
+  --query "select * from user_t where to_char(last_date,'yyyy-mm-dd')='2024-4-2' and \$CONDITIONS" \
+  --target-dir '/sqoop/user_t3/2024-4-2' \
+  --delete-target-dir \
+  --num-mappers 1 \
+  --fields-terminated-by ',' 
+ 
+ 
+ 
+ 
+ 【export】:导出命令       HDFS----------关系型数据库中
+    
+	   --connect:设置数据库的连接字符串
+		   mysql连接字符串:jdbc:mysql://数据库服务器IP地址:3006/数据库名
+		   Oracle连接字符串：jdbc:oracle:thin:@数据库服务器的IP地址:1521:数据库实例名
+	   --username:数据库连接的用户名
+	   --password：数据库连接的密码
+	   --password-file:设置保存密码的文件地址
+	   --driver:设置数据库驱动类的名称，一般系统会自动设别不需要设置
+	   --table:设置导入的表名，如果导入的是Oracle中的表则表名必须要使用大写，并且必须要提前在数据库中创建好表。
+	  
+	   --export-dir:设置导入的数据再hdfs上保存的路径
+	   --fields-terminated-by:设置文件中列之间的分隔符
+	   --num-mappers:设置启动mapreduce的数量，主要就是用来设置并行任务的数量。
+	   -m:等同于--num-mappers
+	   --split-by:设置再处理数据的时候切片是根据哪一列进行切片。
+	   --autoreset-to-one-mapper:设置只启动一个mapreduce程序
+	   --update-key:设置数据更新的主键列，主要就是用来对比书否属于同一行数据，如果组合主键，则多个列之间使用逗号分开
+	   --update-mode:设置更新模式
+	      allowinsert:允许添加
+		  updateonly：只支持修改（默认）
+ 
+       注意：在导出数据的时候，如果要实现数据的更新和添加，则必须要送给表设置主键，如果没有主键，则默认为数据直接追加
+ 
+   --将hdfs中的emp表的数据导出到mysql中的emp表中
+   
+   sqoop export \
+   --connect jdbc:mysql://192.168.1.119:3306/test \
+   --username root \
+   --password 123456 \
+   --table emp \
+   --export-dir '/user/hive/warehouse/demo.db/emp' \
+   --num-mappers 1 \
+   --fields-terminated-by ',' \
+   --update-mode updateonly \
+   --update-key empno 
+   
+    sqoop export \
+   --connect jdbc:mysql://192.168.1.119:3306/test \
+   --username root \
+   --password 123456 \
+   --table user_t \
+   --export-dir '/sqoop/user_t2' \
+   --num-mappers 1 \
+   --fields-terminated-by ',' \
+   --update-mode allowinsert \
+   --update-key id 
+   
+   
+   注意：1.在将hdfs中的数据导出到数据库中，数据的文件格式必须要是textfile格式
+         2.需要提前在对应的数据库上创建好所需要的表。
+		 
+		 
+【sqoop中的job任务】
+查看job下面的所有的命令：
+ [root@master ~]# sqoop job --help
+ 
+ 常见的任务的命令：
+  --create:创建任务
+  --delete:删除任务
+  --exec:执行任务
+  --list:查看任务列表
+  
+  
+  注意：如果要在sqoop中使用任务，则需要在sqoop的安装路径下面的lib文件夹中添加一下两个jar包
+        java-json.jar
+		java-json-schema.jar
+		
+创建任务的语法：
+   sqoop job --create 任务名 -- import 
+   ......
+
+
+--创建一个任务实现数据的导出
+
+sqoop job --create myjob -- export \
+   --connect jdbc:mysql://192.168.1.119:3306/test \
+   --username root \
+   --password 123456 \
+   --table user_t \
+   --export-dir '/sqoop/user_t2' \
+   --num-mappers 1 \
+   --fields-terminated-by ',' \
+   --update-mode allowinsert \
+   --update-key id 
+
+  --执行任务
+  [root@master ~]# sqoop job --exec myjob
+  
+  
+  注意：如果使用的是password来设置的数据库的密码，则在执行任务的时候与还需要再次手动输入密码，
+        如果不想每次都输入密码，则可以将密码保存到文件中并且上传的hdfs系统。
+	
+	设置密码文件：
+	 1.创建一个密码文件，将密码写入
+	   [root@master ~]# echo -n '123456' >pwd.txt
+     2.在hdfs中创建一个文件夹来保存密码文件
+	   123456[root@master ~]# hdfs dfs -mkdir /pwd
+     3.将密码文件上传到上面的文件夹中
+		[root@master ~]# hdfs dfs -put pwd.txt /pwd
+     4.在job中使用password-file命令来指定密码文件的位置
+	    
+   sqoop job --create myjob1 -- export \
+   --connect jdbc:mysql://192.168.1.119:3306/test \
+   --username root \
+   --password-file '/pwd/pwd.txt' \
+   --table user_t \
+   --export-dir '/sqoop/user_t2' \
+   --num-mappers 1 \
+   --fields-terminated-by ',' \
+   --update-mode allowinsert \
+   --update-key id 
+   
+   
+【在hadoop中集成压缩工具：LZO】   
+  如果在数据抽取的时候数据量很大，则可以配合压缩工具来实现数据的压缩操作：一般建议使用：lzo
+  先要将lzo集成到hadoop中
+   集成步骤：
+   1.将lzo插件包添加到hadoop安装路径下面：
+     /root/bigdata/hadoop-2.7.7/share/hadoop/common/
+	 如果hadoop集群中有多态服务器，则每一台服务器中都需要保存
+    2.修改hadoop的核心配置文件：
+	[root@slave2 ~]# vi /root/bigdata/hadoop-2.7.7/etc/hadoop/core-site.xml
+     添加一下内容：
+	 <property>
+	<name>io.compression.codecs</name>
+	<value>
+	org.apache.hadoop.io.compress.GzipCodec,
+	org.apache.hadoop.io.compress.DefaultCodec,
+	org.apache.hadoop.io.compress.BZip2Codec,
+	org.apache.hadoop.io.compress.SnappyCodec,
+	com.hadoop.compression.lzo.LzoCodec,
+	com.hadoop.compression.lzo.LzopCodec
+	</value>
+	</property>
+	<property>
+	<name>io.compression.codec.lzo.class</name>
+	<value>com.hadoop.compression.lzo.LzoCodec</value>
+	</property>
+	
+【hive对LZO支持】
+   修改hive配置文件，开启压缩
+   [root@master ~]# vi bigdata/hive2.3.3/conf/hive-site.xml
+   添加一下内容：
+   <!-- 设置hive语句执行输出文件是否开启压缩,具体的压缩算法和压缩格式取决于hadoop中设置的相关参数 -->
+	<!-- 默认值:false -->
+	<property>
+	<name>hive.exec.compress.output</name>
+	<value>true</value>
+	<description>
+	This controls whether the final outputs of a query (to a local/HDFS file or a Hive table) is compressed.
+	The compression codec and other options are determined from Hadoop config variables mapred.output.compress*
+	</description>
+	</property>
+	<!-- 控制多个MR Job的中间结果文件是否启用压缩,具体的压缩算法和压缩格式取决于hadoop中设置的相关参数 -->
+	<!-- 默认值:false -->
+	<property>
+	<name>hive.exec.compress.intermediate</name>
+	<value>true</value>
+	<description>
+	This controls whether intermediate files produced by Hive between multiple map-reduce jobs are compressed.
+	The compression codec and other options are determined from Hadoop config variables mapred.output.compress*
+	</description>
+	</property>
+ 【sqoop对lzo支持】
+   将lzo的插件包添加到sqoop安装路径下面的lib文件夹中
+   
+ 【重启hadoop平台】
+   stop-all.sh
+   start-all.sh
+   
+    
+  
+  sqoop import \
+  --connect jdbc:oracle:thin:@192.168.1.119:1521:orcl \
+  --username scott \
+  --password 123456 \
+  --table EMP \
+  --target-dir /sqoop/emp \
+  --delete-target-dir \
+  --num-mappers 1 \
+  --fields-terminated-by ',' \
+  --compress \
+  --compression-codec lzop
+  
+  注意：lzo压缩格式默认不支持切片，但是如果要进行数据的切片处理，则需要设置lzo索引
+  索引设置的语法：
+  hadoop jar hadoop中lzo插件包的所在的位置和名称 com.hadoop.compression.lzo.DistributedLzoIndexer 文件位置
+  hadoop jar /root/bigdata/hadoop-2.7.7/share/hadoop/common/hadoop-lzo-0.4.20.jar com.hadoop.compression.lzo.DistributedLzoIndexer /sqoop/emp
+  
+  在使用sqoop抽取数据的时候进行lzo压缩需要切片处理：
+   1.先使用sqoop将数据导入
+   2.在导入的文件所在的目录下面创建lzo索引，为了支持切片。
+   
+   
+【Kettle】:
+   Kettle最早是一个开源的ETL工具,以Java开发，支持跨平台运行，其特性包括：支持100%无编码、拖拽方式开发ETL数据管道；可对接包括传统数据库、文件、大数据平台、接口、流数据等数据源；
+   支持ETL数据管道加入机器学习算法。
+   
+   由于Kettle是一个Java项目，所以在运行之前必须要有java环境，也就是要先安装jdk
+   
+   windows安装JDK
+     1.准备JDK的windows版本的安装包
+	   jdk-8u181-windows-x64.exe
+	 2.双击安装包，按照提示下一步下一步运行安装。
+	 3.进行环境变量的配置
+	   计算机----属性-----高级系统设置----环境变量
+	   在系统环境变量中新建一个变量：
+	   变量名：JAVA_HOME
+	   变量值: JDK安装路径     例如：C:\Program Files\Java\jdk1.8.0_181
+	   
+	   然后修改Path路径，在path路径中新建一个路径：%JAVA_HOME%\bin
+	 4.测试是否安装成功
+	   打开命令窗口，输入一下命令
+	   java -version
+	 
+   
+   注意：在使用kettle之前需要先将对应的数据库的驱动包添加到安装目录下面的lib文件夹下面
+          如果在kettle启动之后添加驱动包，则需要重启kettle才会生效
+		  
+	kettle中有两种脚本文件：transformation和job
+	
+		transformation：主要就是针对数据的一些基础清洗和转换
+		job:主要是完成一个工作列的控制可以用来进行ETL调度。
+	Kettle中包括常用的三个产品：
+	   spoon:是kettle中的可视化操作的界面，主要就是用来创建ETL过程中需要使用的转换和作业，也可以用来执行转换和作业。
+	   pan:主要是通过命令的方式来执行转换
+	   kitchen:主要是通过命令的方式来执行作业。
+		  
+		 
+    列转行组件：将纵向表转换成横向表，相当于Oracle中的pivot函数
+	注意：转换之前必须要先将数据按照分组列进行排序
+	字段解释：
+	   关键字段：将列中的值转换成列名的列   例如：cname
+	   分组字段：在转换过程中不发生变化的列的名曾   例如：sname
+	  目标字段:自定义列名，对应的是转换之后列的别名   例如：语文，。。。。
+	  数据字段：转换之后中间填充的数据列的列名    例如：score
+	  关键字值：代表关键字段中的具体的值
+	  
+	  
+	  
+	  
+	电信计费系统：
+	创建4个账号：
+第一个账号：模拟生成系统：
+创建生产系统中的账号
+create user bi_oltp identified by bi_oltp
+default tablespace users temporary tablespace temp 
+profile default account unlock;
+
+grant connect to bi_oltp;
+grant dba to bi_oltp;
+grant resource to bi_oltp;
+grant unlimited tablespace  to bi_oltp;
+grant select any table to bi_oltp;
+alter user bi_oltp default role all;
+
+需要在生产系统中创建两张表：
+1.通话记录表
+--通话详单表，建表语句
+create table CALL_RECORD
+(
+  CALL_ID     INTEGER,
+  CALL_DATE   DATE,
+  CALL_TYPE   VARCHAR2(20),
+  PHONE_NO    VARCHAR2(20),
+  PHONE2_NO   VARCHAR2(20),
+  BEGIN_TIME  VARCHAR2(30),
+  REGION      VARCHAR2(20),
+  PHONE_MODEL VARCHAR2(20),
+  TIME_LONG   NUMBER,
+  FEE         FLOAT,
+  FIELDS1     VARCHAR2(200),
+  FIELDS2     VARCHAR2(200),
+  FIELDS3     VARCHAR2(200),
+  FIELDS4     VARCHAR2(200),
+  FIELDS5     VARCHAR2(200)
+);
+--执行oltp_data.sql文件
+
+
+2.产品表
+--产品表，建表
+create table PRODUCT
+(
+  PROD_ID         VARCHAR2(40),
+  PROD_DESC       VARCHAR2(40),
+  BASIC_FEE       NUMBER,
+  MF_TIME         VARCHAR2(40),
+  CALL_MINUTE_FEE NUMBER(7,2),
+  MF_FLOW         VARCHAR2(40),
+  FLOW_MINUTE_FEE NUMBER(7,2)
+);
+
+--导入以下数据：
+insert into product values('4G58','58元畅享套餐',58,'30',0.19,'6G',0.29);
+insert into product values('4G78','78元畅享套餐',78,'50',0.19,'20G',0.29);
+insert into product values('4G98','98元畅享套餐',98,'150',0.19,'30G',0.29);
+insert into product values('4G168','168元畅享套餐',168,'450',0.19,'30G',0.29);
+insert into product values('4G198','198元畅享套餐',198,'700',0.19,'50G',0.29);
+insert into product values('4G288','288元畅享套餐',288,'1200',0.19,'50G',0.29);
+insert into product values('4G388','388元畅享套餐',388,'2000',0.19,'100G',0.29);
+insert into product values('4G588','588元畅享套餐',588,'40000',0.19,'150G',0.29);
+
+
+
+
+
+第二个账号：ODS层
+创建ods层的账号
+create user bi_ods identified by bi_ods 
+default tablespace users temporary tablespace temp 
+profile default account unlock;
+
+grant connect to bi_ods;
+grant dba to bi_ods;
+grant resource to bi_ods;
+grant unlimited tablespace  to bi_ods;
+grant select any table to bi_ods;
+alter user bi_ods default role all;
+
+需要使用kettle工具将源系统中的两张表以及一个csv文件导入进入
+因此：ODS层有三张表
+
+ETL过程创建为一个Kettle转换
+
+
+
+
+创建edw层的账号
+create user bi_edw identified by bi_edw 
+default tablespace users temporary tablespace temp 
+profile default account unlock;
+
+grant connect to bi_edw;
+grant dba to bi_edw;
+grant resource to bi_edw;
+grant unlimited tablespace  to bi_edw;
+grant select any table to bi_edw;
+alter user bi_edw default role all;
+
+将ods层表进行关联计算，生成一张表
+
+需要创建一个kettle转换来实现数据的ETL过程
+
+
+
+
+创建dm层的账号
+create user bi_dm identified by bi_dm 
+default tablespace users temporary tablespace temp 
+profile default account unlock;
+
+grant connect to bi_dm;
+grant dba to bi_dm;
+grant resource to bi_dm;
+grant unlimited tablespace  to bi_dm;
+grant select any table to bi_dm;
+alter user bi_dm default role all;
+	  
+	 将dw层中的表按照主题汇总成两张表：
+     产品主题表：
+     客户主题表
+   
+    ETL过程也需要使用Kettle来完成！   
+	  
+	  
+	  
+	  
+	  
+	
+
+    		 
+   
+   
+电信计费系统案例：
+ 1.整个数仓是搭建在Oracle数据库中
+   数仓分层：
+   ODS:操作型数据层，也叫做贴源层，主要就是用来保存从元数据抽取过来的数据，数据结构和源系统的表的数据结构一样。
+   EDW:企业级数据仓库，主要是对ODS层的数据进行进一步的处理，将ODS层表结构重构（建模），主要就是要将多个系统中的数据表进行合并等等，
+       在进行表合并的时候会进行数据etl操作，主要就是数据类型统一，格式要统计，单位要统一等等。
+      
+   DM:数据集市：相当于一个小型的数据仓库，将数据按照需求主题进行划分，然后根据具体的需求进行数据的汇总和计算。
+   
+ 2.源数据探查：主要是用来了解源数据的数据结构，以及数据质量情况。
+    1.通话记录表：保存在BI_OLTP用户中
+	2.产品表：保存在BI_OLTP用户中
+	3.客户信息表：来自于一个csv文件
+	
+ 3.操作过程：
+    将源系统的数据抽取到ODS层：
+	bi_oltp-------->bi_ods
+    将ODS层数据处理到EDW中
+	bi_ods---------bi_edw
+    edw模型：
+	物理模型的字段：
+        月份 客户编号   客户姓名   手机号     产品编号    产品名称   通话时长    基础费用     额外费用      总费用	
+	
+    按照分析主题将edw中的数据进行进一步的处理统计
+	  客户主题：
+	   客户编号    客户姓名   月份       月话费      季度名称       季度话费         
+	  
+	  
+	  产品主题：
+       产品编号    月份     月收入    季度     季度收入
+	   
+	   
+	   
+【kettle中进行数据的增量抽取】
+
+  数据同步：
+      1.全量导入数据：直接将原表中的数据全部查询出来导入到目标表中，加载的方式有两种：
+	                  1.如果不保留历史数据，则加载之前需要将原来的数据清空，然后再添加。
+					     如果要清空数据，则可以使用脚本中的sql文件来编写truncate 语句进行数据的清除。
+					  2.如果要保留历史数据，则直接再目标表中进行数据的追加
+		
+			使用组件：表输入--------表输出
+					  
+					  
+	  2.增量导入数据：每次只会将发生变化的数据抽取，没有发生变化的数据不会进行同步，可以保证源系统中的数据和目标表中的数据一致。
+	  
+            使用组件：表输入-------插入/更新     功能相当于Oracle中merge into
+			注意：再进行表输入的时候如果要增量则需要设置条件来抽取发生变化的数据，一般按照日期进行抽取。
+			
+		再增量抽取数据的时候需要使用参数来设置抽取日期条件：
+		 kettle中参数的分类：
+		  1.全局参数：主要用来设置整个kettle环境中的一些变量，可以被整个kettle共享。
+		     方式一：再spoon的编辑菜单中----编辑kettle.properties文件来添加变量
+			 方式二：在kettle的配置文件中添加参数：
+			         配置文件的位置：C:\Users\EDY\.kettle\kettle.properties
+                    
+					 注意:添加了全局变量之后需要重启kettle才会生效。
+		  
+		  2.局部参数：主要就是在转换或者是作业中使用的参数，在转换和作业中设置的参数只能在当前的转化和作业中使用。
+		     设置参数的方式：
+			    在转化或者作业中点击右键：打开命名参数就可以设置参数名称以及默认值。
+				kettle中使用参数：${参数名}
+		
+
+
+Kettle中的作业：
+     主要就是为了完成整个工作流的控制，也就是说可以将ETL的转换任务按照他们之间的依赖关系封装车工一个完整的业务线，有助于进行ETL自动化流程
+	 
+          		
+
+kettle中使用命令来执行转换和作业
+ 1.pan：专门用来执行转化
+   常见命令：
+   /file           : 要启动的文件名(转换所在的 XML 文件)
+   /level          : 日志等级 (基本, 详细, 调试, 行级, 错误, 没有)
+   /logfile        : 要写入的日志文件
+   /param          : Set a named parameter <NAME>=<VALUE>. For example -param:FOO=bar  
+
+执行语法：pan /file=转换文件的路径名成 /level=basic /logfile=日志文件路径名 "-param:参数名=值 -param:参数名=值 ......"
+         pan /file=D:\课件\2402\hadoop课件\2024-4-24\scripts\test.ktr /level=basic /logfile=D:\课件\2402\hadoop课件\2024-4-24\scripts\test.log
+		 
+         pan /file=D:\课件\2402\hadoop课件\2024-4-24\scripts\test.ktr /level=basic /logfile=D:\课件\2402\hadoop课件\2024-4-24\scripts\test.log "-param:to_date=2024-04-24"
+		  	
+ 2.kitchan:专门用来执行作业
+    执行方式和转换一样：
+	
+	执行一个作业：
+	
+		 kitchen /file=D:\课件\2402\hadoop课件\2024-4-24\scripts\dianxin.kjb /level=basic /logfile=D:\课件\2402\hadoop课件\2024-4-24\scripts\dianxin.log	
+			
+
+Kettle中定时调度：
+  1.使用spoon自带的定时任务来进行定时调度
+     主要是通过start组件来完成定时任务
+	 注意：如果使用的是spoon中的start来进行定时则必须要保证spoon窗口一直处于启动状态。
+  2.使用操作系统的定时任务配合命令来完成定时。
+    1.如果在Linux中则直接使用crontab命令来完成定时操作
+	2.在windows中如何进行定时操作。
+	右键计算机-----管理------系统工具-----任务计划程序-----创建基本任务
+	 在windows中执行的任务需要封装成一个bat脚本来执行
+	 新建一个文本文件，后缀修改为.bat，然后输入以下内容：
+	 d:
+	cd D:\big_data\bigdata\fineBI\kettle-neo4j-remix-8.2.0.7-719-REMIX\data-integration
+	kitchen /file=D:\dianxin.kjb /level=basic /logfile=D:\dianxin.log
+	
+	然后创建号定时任务即可
+	
+	注意：为了防止定时任务执行失败，或者是定时失败，最好不要在脚本文件中的路径中出现中文。
+	
+	
+	
+Kettle中的资源库使用：
+  为了方便多人开发的时候来管理各种脚本文件资源。
+  资源库有两种：
+        1.使用数据库来管理
+		2.使用文件来管理
